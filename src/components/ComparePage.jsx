@@ -163,7 +163,8 @@ function tally(out) {
   }
   const lead = a === b ? null : a > b ? out[0] : out[1];
   const trail = a === b ? null : a > b ? out[1] : out[0];
-  const wonModels = (x, y) => MODEL_ORDER.filter((id) => x.results[id]?.available && y.results[id]?.available && x.results[id].subscore > y.results[id].subscore).map((id) => MODEL_LABELS[id].toLowerCase());
+  const FRIENDLY = { dcf: 'valuation', monteCarlo: 'Monte Carlo', risk: 'risk', momentum: 'momentum', health: 'financial health', earnings: 'earnings and insiders' };
+  const wonModels = (x, y) => MODEL_ORDER.filter((id) => x.results[id]?.available && y.results[id]?.available && x.results[id].subscore > y.results[id].subscore).map((id) => FRIENDLY[id] || MODEL_LABELS[id]);
   if (!lead) return { sentence: `${out[0].ticker} and ${out[1].ticker} split the models evenly (${a} each), so the overall scores are the tie-breaker.` };
   return {
     sentence: `${lead.ticker} leads on ${Math.max(a, b)} of the ${a + b} comparable models (${wonModels(lead, trail).join(', ')}); ${trail.ticker} leads on ${Math.min(a, b)}${Math.min(a, b) ? ` (${wonModels(trail, lead).join(', ')})` : ''}.`,

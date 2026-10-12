@@ -41,6 +41,18 @@ src/lib/        pipeline (fetch → run models), API client, settings/history (l
 src/components/ ScoreCard, ModelCard, charts, SettingsPanel, Reasoning (Standard + Wharton)
 ```
 
+## Views
+
+| Tab | What it does |
+|---|---|
+| Stock | Six models on one ticker; optional **as-of date** scores the stock with only the data that existed then and shows what happened next. Deep links: `/?t=NVDA` or `/?t=NVDA&asof=2025-01-15`. |
+| Portfolio | Holdings + horizon + growth target + thesis → blended portfolio score (see below). |
+| Compare | Two tickers side by side: every subscore and key metric, better value highlighted. |
+| Backtest | Score many tickers as of a past date and measure correlation with forward returns (Pearson, Spearman, bucket averages, direction hit rate), with the full calculation shown. |
+| How it works | Plain-language methodology, a data-flow diagram, limitations and data sources. |
+
+The risk-free rate is fetched automatically from the U.S. Treasury daily yield curve (`api/riskfree.js`; for as-of runs, the rate on that date), and can be overridden in Settings.
+
 ## Portfolio view
 
 Switch to **Portfolio** in the header. Enter holdings with any amounts (percent or dollars; weights are worked out from the ratios), a time horizon, the growth you need over that horizon, and your thesis in your own words. Each holding runs the full six-model analysis, then three portfolio models (`src/models/portfolio.js`) produce the score:
