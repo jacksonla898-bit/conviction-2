@@ -1,6 +1,6 @@
 # Conviction 2.0
 
-Single-stock analysis app: six hand-written models (DCF, Monte Carlo, risk, momentum, financial health, earnings & insiders) roll up into one 0–100 conviction score. Vite + React + Recharts + Tailwind on the front end; five Vercel serverless functions in `/api` make every external call so API keys never reach the browser.
+Single-stock analysis app: six hand-written models (DCF, Monte Carlo, risk, momentum, financial health, earnings & insiders) roll up into one 0–100 conviction score. Vite + React + Recharts + Tailwind on the front end; six Vercel serverless functions in `/api` (prices, fundamentals, earnings, insiders, risk-free rate, AI reasoning) make every external call so API keys never reach the browser. Live at https://www.tradeconviction.com.
 
 ## Run locally
 
