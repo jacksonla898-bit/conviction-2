@@ -1,10 +1,14 @@
-// Pushes the five server-side variables from .env.local to the linked Vercel project (Production
-// and Preview) without printing their values. Run from the project folder:  node scripts/push-env-to-vercel.mjs
+// Pushes the server-side variables from .env.local to the linked Vercel project (Production and
+// Preview) without printing their values. Run from the project folder:
+//   node scripts/push-env-to-vercel.mjs                 (all names)
+//   node scripts/push-env-to-vercel.mjs SUPABASE_URL    (only the names listed)
 // Requires `vercel login` and `vercel link` to have been done already.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const NAMES = ['ALPACA_KEY_ID', 'ALPACA_SECRET_KEY', 'FINNHUB_API_KEY', 'ANTHROPIC_API_KEY', 'SEC_USER_AGENT'];
+const ALL_NAMES = ['ALPACA_KEY_ID', 'ALPACA_SECRET_KEY', 'FINNHUB_API_KEY', 'ANTHROPIC_API_KEY', 'SEC_USER_AGENT', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const only = process.argv.slice(2);
+const NAMES = only.length ? ALL_NAMES.filter((n) => only.includes(n)) : ALL_NAMES;
 const text = fs.readFileSync('.env.local', 'utf8');
 const vars = {};
 for (const line of text.split(/\r?\n/)) {
@@ -20,9 +24,7 @@ for (const name of NAMES) {
     continue;
   }
   for (const env of ['production', 'preview']) {
-    // Remove any existing value first so re-running the script updates rather than fails.
-    spawnSync(vercel, ['env', 'rm', name, env, '--yes'], { stdio: 'ignore', shell: true });
-    const r = spawnSync(vercel, ['env', 'add', name, env], { input: value, encoding: 'utf8', shell: true });
+    const r = spawnSync(vercel, ['env', 'add', name, env, ...(env === 'preview' ? ['""'] : []), '--force', '--yes'] /* --force overwrites; the empty branch argument means all Preview branches */, { input: value, encoding: 'utf8', shell: true });
     const ok = r.status === 0;
     console.log(`${name} (${env}): ${ok ? 'added' : 'FAILED'}${ok ? '' : ' ' + (r.stderr || r.stdout).trim().split('\n').pop()}`);
   }

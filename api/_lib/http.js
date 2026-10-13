@@ -17,8 +17,29 @@ export async function cached(key, ttlMs, compute) {
   return value;
 }
 
-/** Fetch JSON with a timeout and a readable error on non-2xx responses. */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Fetch JSON with a timeout and a readable error on non-2xx responses.
+ * A transient failure (rate limit, 5xx, network error or timeout) is retried up to twice with a
+ * short pause, so a momentary hiccup at a data source does not show up as "Unavailable".
+ * A lasting failure is still reported as a failure; nothing is ever substituted for missing data.
+ */
 export async function fetchJson(url, options = {}, timeoutMs = 20000) {
+  const delays = [900, 2200];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchJsonOnce(url, options, timeoutMs);
+    } catch (err) {
+      // A timeout is not retried: a second 20-second wait would exceed the function's time limit.
+      const transient = err.name !== 'AbortError' && (err.status === 429 || (err.status >= 500 && err.status <= 599) || err.status === undefined);
+      if (!transient || attempt >= delays.length) throw err;
+      await sleep(delays[attempt]);
+    }
+  }
+}
+
+async function fetchJsonOnce(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
