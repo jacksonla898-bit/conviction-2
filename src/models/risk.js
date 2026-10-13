@@ -13,7 +13,8 @@
 //     sharpeScore = clamp( 50 + 25·Sharpe, 0, 100 )               → Sharpe 0 scores 50, Sharpe 2 scores 100 (skipped if no risk-free rate)
 //     ddScore     = clamp( 100 + 125·MDD, 0, 100 )                → MDD −20% scores 75, MDD −80% scores 0
 
-import { logReturns, mean, stdev, covariance, variance, clamp, fmt, fmtPct, unavailable } from './_math.js';
+import { logReturns, mean, stdev, covariance, variance, clamp, fmt, fmtPct, unavailable, topDrivers } from './_math.js';
+import { computed, missing, alpacaInput, settingInput } from '../lib/provenance.js';
 
 export const ID = 'risk';
 export const NAME = 'Risk';
@@ -132,5 +133,25 @@ export function runRisk({ bars, spyBars }, settings) {
     ],
     steps,
     chart: { drawdown, rollingBeta },
+    keyOutput: `Volatility ${fmtPct(annualVol)}; beta ${fmt(beta)}; max drawdown ${fmtPct(maxDD)}`,
+    drivers: topDrivers([
+      { label: 'Annual volatility', value: fmtPct(annualVol), score: volScore },
+      { label: 'Beta vs SPY', value: fmt(beta), score: betaScore },
+      { label: 'Max drawdown (5y)', value: fmtPct(maxDD), score: ddScore },
+      ...(sharpeScore === null ? [] : [{ label: 'Sharpe ratio', value: fmt(sharpe), score: sharpeScore }]),
+    ]),
+    provenance: (() => {
+      const px = alpacaInput(bars);
+      const spx = alpacaInput(spyBars, 'SPY daily closes');
+      const rfP = settings?.riskFreeProv || settingInput('risk-free rate');
+      return {
+        annualVol: computed(annualVol, [px]),
+        beta: computed(beta, [px, spx]),
+        sharpe: sharpe === null ? missing('No risk-free rate available (Treasury lookup failed and none entered in Settings).') : computed(sharpe, [px, rfP]),
+        maxDD: computed(maxDD, [px]),
+        annualMean: computed(annualMean, [px]),
+        troughDate: computed(troughDate, [px]),
+      };
+    })(),
   };
 }

@@ -101,7 +101,7 @@ export async function runModels(raw, settings, cache = {}) {
     else if (fundErr) results[DCF] = unavailable(DCF, 'DCF valuation', `EDGAR failed: ${fundErr}`);
     else {
       const beta = results[RISK]?.available ? results[RISK].metrics.beta : null;
-      results[DCF] = safe(() => runDCF({ fundamentals, beta, price }, settings), DCF, 'DCF valuation');
+      results[DCF] = safe(() => runDCF({ fundamentals, beta, price, priceAsOf: bars && bars.length ? bars[bars.length - 1].date : null }, settings), DCF, 'DCF valuation');
     }
   }
 
@@ -123,6 +123,55 @@ function safe(fn, id, name) {
     console.error(`[${id}]`, err);
     return unavailable(id, name, `Model error: ${err.message}`);
   }
+}
+
+/**
+ * Source and as-of date for each data type behind an analysis (shown on screen and in the PDF footer).
+ * A source that failed is reported as unavailable with the reason; nothing is filled in for it.
+ */
+export function dataSources(raw, settings) {
+  const out = [];
+  const p = raw.prices;
+  if (p.status === 'ok' && p.data?.stock?.length) {
+    const last = p.data.stock[p.data.stock.length - 1];
+    out.push({ type: 'Prices (stock and SPY)', source: 'Alpaca', asOf: last.date, status: 'ok', detail: `Daily bars, IEX feed, split-adjusted; ${p.data.stock.length} bars from ${p.data.stock[0].date}` });
+  } else {
+    out.push({ type: 'Prices (stock and SPY)', source: 'Alpaca', asOf: null, status: 'unavailable', reason: p.error || 'Price data was not loaded.' });
+  }
+
+  const f = raw.fundamentals;
+  if (f.status === 'ok' && f.data?.series) {
+    const candidates = ['revenue', 'netIncome', 'operatingCashFlow'].flatMap((k) => f.data.series[k] || []);
+    const latest = candidates.sort((a, b) => String(a.end).localeCompare(String(b.end))).pop();
+    if (latest) out.push({ type: 'Fundamentals', source: 'SEC EDGAR', asOf: latest.end, status: 'ok', detail: `${latest.form || '10-K'}, FY${latest.year}, period ended ${latest.end}, filed ${latest.filed}; XBRL companyfacts, CIK ${f.data.cik}` });
+    else out.push({ type: 'Fundamentals', source: 'SEC EDGAR', asOf: null, status: 'unavailable', reason: 'SEC EDGAR companyfacts returned no annual revenue, net income or cash-flow values.' });
+  } else {
+    out.push({ type: 'Fundamentals', source: 'SEC EDGAR', asOf: null, status: 'unavailable', reason: f.error || 'Fundamentals were not loaded.' });
+  }
+
+  const e = raw.earnings;
+  if (e.status === 'ok' && e.data?.earnings?.length) {
+    const rows = e.data.earnings;
+    out.push({ type: 'Earnings surprises', source: 'Finnhub', asOf: rows[rows.length - 1].period, status: 'ok', detail: `${rows.length} quarters of EPS actual vs estimate, latest quarter ended ${rows[rows.length - 1].period}` });
+  } else {
+    out.push({ type: 'Earnings surprises', source: 'Finnhub', asOf: null, status: 'unavailable', reason: e.status === 'ok' ? e.data?.note || 'Finnhub earnings endpoint returned no data.' : `Finnhub earnings endpoint failed: ${e.error || 'not loaded'}` });
+  }
+
+  const i = raw.insiders;
+  if (i.status === 'ok' && i.data?.transactions?.length) {
+    out.push({ type: 'Insider transactions', source: 'Finnhub', asOf: i.data.to, status: 'ok', detail: `${i.data.transactions.length} Form 4 rows from ${i.data.from} to ${i.data.to}` });
+  } else {
+    out.push({ type: 'Insider transactions', source: 'Finnhub', asOf: null, status: 'unavailable', reason: i.status === 'ok' ? 'Finnhub insider endpoint returned no data.' : `Finnhub insider endpoint failed: ${i.error || 'not loaded'}` });
+  }
+
+  const rf = settings?.riskFreeProv;
+  const rate = settings?.riskFreeRate;
+  if (rf && rate !== '' && rate !== null && rate !== undefined) {
+    out.push({ type: 'Risk-free rate', source: rf.source, asOf: rf.asOf, status: 'ok', detail: `${Number(rate).toFixed(2)}% (${rf.detail})` });
+  } else {
+    out.push({ type: 'Risk-free rate', source: 'U.S. Treasury', asOf: null, status: 'unavailable', reason: 'No risk-free rate was available (Treasury lookup failed and none was entered in Settings).' });
+  }
+  return out;
 }
 
 /**
@@ -202,7 +251,7 @@ export function buildReasoningPayload(ticker, results, conviction, settings) {
   return {
     ticker,
     asOf: settings.asOf || new Date().toISOString().slice(0, 10),
-    pointInTime: Boolean(settings.asOf),
+    ...(settings.asOf ? { pointInTime: true, pointInTimeNote: 'Every input is as of this past date; nothing later was used.' } : {}),
     conviction: {
       score: conviction.score,
       label: conviction.label,

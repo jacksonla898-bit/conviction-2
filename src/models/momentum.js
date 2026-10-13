@@ -11,7 +11,8 @@
 //     smaScore = 50·[P > SMA50] + 50·[P > SMA200]          → above both = 100, above one = 50, below both = 0
 //     rsiScore = clamp( 100 − 2.5·|RSI − 55|, 0, 100 )     → RSI 55 scores 100; RSI 15 or 95 scores 0 (penalizes overbought/oversold)
 
-import { clamp, smaAt, fmt, fmtPct, unavailable } from './_math.js';
+import { clamp, smaAt, fmt, fmtPct, unavailable, topDrivers } from './_math.js';
+import { SRC, fetched, computed, alpacaInput } from '../lib/provenance.js';
 
 export const ID = 'momentum';
 export const NAME = 'Momentum';
@@ -89,5 +90,23 @@ export function runMomentum({ bars }) {
       { label: 'Subscore', formula: '(momScore + smaScore + rsiScore) / 3', calc: `(${fmt(momScore, 1)} + ${fmt(smaScore, 1)} + ${fmt(rsiScore, 1)}) / 3`, result: `${subscore} / 100` },
     ],
     chart: { series },
+    keyOutput: `12-1 momentum ${fmtPct(momentum)}; ${aboveSma50 && aboveSma200 ? 'above both SMAs' : aboveSma50 || aboveSma200 ? 'above one SMA' : 'below both SMAs'}; RSI ${fmt(rsi, 0)}`,
+    drivers: topDrivers([
+      { label: '12-1 month momentum', value: fmtPct(momentum), score: momScore },
+      { label: 'Position vs 50/200-day SMA', value: aboveSma50 && aboveSma200 ? 'above both' : aboveSma50 ? 'above 50-day only' : aboveSma200 ? 'above 200-day only' : 'below both', score: smaScore },
+      { label: 'RSI (14)', value: fmt(rsi, 1), score: rsiScore },
+    ]),
+    provenance: (() => {
+      const px = alpacaInput(bars);
+      const c = (v) => computed(v, [px]);
+      return {
+        price: fetched(P, SRC.ALPACA, bars[t].date, 'latest daily close, IEX feed'),
+        momentum12_1: c(momentum),
+        sma50: c(sma50),
+        sma200: c(sma200),
+        rsi14: c(rsi),
+        trend: c(aboveSma50 && aboveSma200),
+      };
+    })(),
   };
 }

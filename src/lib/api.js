@@ -1,4 +1,6 @@
-// Thin client for the /api serverless functions. Never throws: returns {ok, data} or {ok:false, error, unavailable}.
+// Thin client for the data and log serverless functions. Never throws: returns {ok, data} or
+// {ok:false, error, unavailable}. The AI endpoint is deliberately NOT here: it lives in its own
+// module that only Standard-mode code loads, so nothing on the Wharton path can reach it.
 
 async function getJson(url, init) {
   try {
@@ -31,10 +33,7 @@ export const api = {
   earnings: (ticker, asOf) => getJson(`/api/earnings?${q(ticker, asOf)}`),
   insiders: (ticker, asOf) => getJson(`/api/insiders?${q(ticker, asOf)}`),
   riskfree: (asOf) => getJson(`/api/riskfree${asOf ? `?asof=${encodeURIComponent(asOf)}` : ''}`),
-  reason: (ticker, payload) =>
-    getJson('/api/reason', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker, payload }),
-    }),
+  // Analysis log (Supabase, server-side only). Writes one row per completed analysis; reads the history.
+  logAnalysis: (payload) => getJson('/api/analyses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  history: ({ ticker = '', order = 'desc', limit = 300 } = {}) => getJson(`/api/analyses?order=${order}&limit=${limit}${ticker ? `&ticker=${encodeURIComponent(ticker)}` : ''}`),
 };

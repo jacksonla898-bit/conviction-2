@@ -2,41 +2,8 @@
 // Returns 5 years of daily bars for the ticker and for SPY from Alpaca Market Data v2 (IEX feed).
 // With `asof`, the 5-year window ends on that date and the bars after it are returned separately as
 // `forward` / `spyForward`, so an as-of analysis can also show what happened next.
-import { cached, fetchJson, cleanTicker, sendJson, sendError, requireEnv, isoDate } from './_lib/http.js';
-
-const ALPACA = 'https://data.alpaca.markets/v2/stocks';
-
-async function fetchBars(symbol, keyId, secret, startDate, endDate) {
-  const headers = { 'APCA-API-KEY-ID': keyId, 'APCA-API-SECRET-KEY': secret };
-  const bars = [];
-  let pageToken = null;
-  let pages = 0;
-  do {
-    const params = new URLSearchParams({
-      timeframe: '1Day',
-      start: isoDate(startDate),
-      end: isoDate(endDate),
-      limit: '10000',
-      adjustment: 'split',
-      feed: 'iex',
-      sort: 'asc',
-    });
-    if (pageToken) params.set('page_token', pageToken);
-    const data = await fetchJson(`${ALPACA}/${encodeURIComponent(symbol)}/bars?${params}`, { headers });
-    for (const b of data.bars || []) {
-      bars.push({ date: b.t.slice(0, 10), open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v });
-    }
-    pageToken = data.next_page_token || null;
-    pages += 1;
-  } while (pageToken && pages < 5);
-
-  if (bars.length === 0) {
-    const err = new Error(`Alpaca returned no daily bars for ${symbol}. Check the ticker symbol.`);
-    err.status = 404;
-    throw err;
-  }
-  return bars;
-}
+import { cached, cleanTicker, sendJson, sendError, requireEnv } from './_lib/http.js';
+import { fetchBars } from './_lib/alpaca.js';
 
 export default async function handler(req, res) {
   try {
@@ -51,7 +18,7 @@ export default async function handler(req, res) {
     if (asof && anchor > today) return sendJson(res, 400, { error: 'The as-of date is in the future.' });
     const start = new Date(anchor);
     start.setFullYear(start.getFullYear() - 5);
-    start.setDate(start.getDate() - 7);
+    start.setDate(start.getDate() - 7); // small buffer so we have >= 5y of trading days
     const key = (sym) => `bars:${sym}:${asof || 'now'}`;
 
     const [stockAll, spyAll] = await Promise.all([

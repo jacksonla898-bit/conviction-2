@@ -1,5 +1,6 @@
 import React from 'react';
 import { MODEL_LABELS } from '../models/conviction.js';
+import Prov from './Prov.jsx';
 
 const COLORS = { dcf: '#3987e5', monteCarlo: '#d95926', risk: '#199e70', momentum: '#c98500', health: '#d55181', earnings: '#9085e9' };
 
@@ -13,7 +14,7 @@ function labelColor(label) {
   }
 }
 
-export default function ScoreCard({ ticker, companyName, price, priceDate, conviction, pending, asOf, onCopyLink, copied }) {
+export default function ScoreCard({ ticker, companyName, price, priceDate, conviction, pending, asOf, onCopyLink, copied, priceProv, scoreProv }) {
   const { score, label, breakdown, excluded } = conviction;
   return (
     <section className="card p-5 md:p-6" id="score-card">
@@ -22,14 +23,14 @@ export default function ScoreCard({ ticker, companyName, price, priceDate, convi
         <div className="flex items-baseline gap-4">
           <div className="num text-6xl md:text-7xl font-bold leading-none" style={{ color: labelColor(label) }}>{score === null ? '—' : score}</div>
           <div>
-            <div className="text-lg font-semibold" style={{ color: labelColor(label) }}>{score === null ? 'No score yet' : `${label} conviction`}</div>
+            <div className="text-lg font-semibold" style={{ color: labelColor(label) }}>{score === null ? 'No score yet' : `${label} conviction`}{score !== null && <Prov p={scoreProv} />}</div>
             <div className="text-xs text-muted">0–39 Low · 40–59 Neutral · 60–79 High · 80–100 Very High</div>
           </div>
         </div>
         <div className="md:ml-auto md:text-right">
           <div className="text-2xl font-bold tracking-tight">{ticker}</div>
           {companyName && <div className="text-sm text-ink-2 truncate max-w-[260px]">{companyName}</div>}
-          {price && <div className="num text-sm text-muted">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · close {priceDate}</div>}
+          {price && <div className="num text-sm text-muted">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · close {priceDate}<Prov p={priceProv} /></div>}
           {onCopyLink && <button className="text-xs text-s1 hover:underline mt-1" onClick={onCopyLink}>{copied ? 'Link copied' : 'Copy link to this analysis'}</button>}
         </div>
       </div>

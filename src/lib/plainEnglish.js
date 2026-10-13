@@ -44,8 +44,16 @@ export function chartExplanations(r, ticker) {
           reading: `${t} generated ${fmtMoney(m.fcf0)} of free cash flow in fiscal ${m.fcfYear}. We grew that at ${pct(m.growth, 1)} a year (${m.growthSource}), then discounted everything back to today at ${pct(m.discountRate, 1)} a year, the return an investor should demand given how risky the stock has been.`,
           caveat: `${pct(m.terminalShare)} of the value comes from the years after year five, which is the part we know least about.`,
         },
-        sensitivity: {
-          what: 'Because the valuation depends so heavily on two guesses, this table shows the answer under different guesses: how much return to demand (rows) and how fast the company grows forever after year five (columns). Green cells are above today\'s price, red cells below.',
+        tornado: {
+          what: 'Each bar shows how far the fair value moves when one assumption is changed and everything else is left alone. The longest bar is the assumption the answer depends on most. The solid line is the Base fair value; the dashed line is today\'s price.',
+          reading: (() => {
+            const top = r.chart.tornado.rows.find((x) => x.min !== null);
+            return top ? `For ${t}, the most sensitive input is ${top.label.toLowerCase()}: moving it between ${top.lowInput} and ${top.highInput} moves the fair value between ${usd(top.min)} and ${usd(top.max)}. Bear, Base and Bull come out at ${m.bearValue === null ? 'Unavailable' : usd(m.bearValue)}, ${usd(m.intrinsicValue)} and ${m.bullValue === null ? 'Unavailable' : usd(m.bullValue)}.` : 'No input variation produced a defined value.';
+          })(),
+          caveat: 'These ranges are fixed, equal-sized nudges chosen for comparison, not forecasts of how much each input might actually change.',
+        },
+        grid: {
+          what: 'Because the valuation depends so heavily on two guesses, this table shows the answer under different guesses: how much return to demand (rows) and how fast free cash flow grows over the next five years (columns). Green cells are above today\'s price, red cells below.',
           reading: `Our base case (the centre cell) says ${t} is worth about ${usd(m.intrinsicValue)} a share against a price of ${usd(m.price)}, which is ${abovePct(m.upside)} the price. ${m.upside < 0 ? 'If most of the table is red, the stock looks expensive on cash flow under a wide range of assumptions.' : 'If most of the table is green, the stock looks cheap on cash flow under a wide range of assumptions.'}`,
           caveat: 'Fast-growing companies often look expensive on this test because it caps growth and demands a high return. Treat it as one opinion, not the verdict.',
         },

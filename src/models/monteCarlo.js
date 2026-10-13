@@ -13,6 +13,7 @@
 //   Subscore = 100 × P(S_T > S_0)   (probability of finishing above today's price, as a 0–100 score)
 
 import { logReturns, mean, stdev, percentileSorted, makeRng, makeNormal, fmt, fmtPct, unavailable } from './_math.js';
+import { SRC, fetched, computed, alpacaInput } from '../lib/provenance.js';
 
 export const ID = 'monteCarlo';
 export const NAME = 'Monte Carlo';
@@ -123,5 +124,23 @@ export async function runMonteCarlo({ bars }) {
       { label: 'Subscore', formula: 'score = 100 × P', calc: `100 × ${pAbove.toFixed(4)}`, result: `${subscore} / 100` },
     ],
     chart: { fan, histogram, S0 },
+    keyOutput: `P(above today) ${fmtPct(pAbove)}; median 1-year ${fmtPct(median / S0 - 1)}`,
+    drivers: [
+      { label: 'P(ending price > today)', value: fmtPct(pAbove) },
+      { label: 'Annual drift / volatility', value: `${fmtPct(muAnnual)} / ${fmtPct(sigmaAnnual)}` },
+    ],
+    provenance: (() => {
+      const px = alpacaInput(bars);
+      const c = (v) => computed(v, [px]);
+      return {
+        currentPrice: fetched(S0, SRC.ALPACA, lastDate, 'latest daily close, IEX feed'),
+        pAbove: c(pAbove),
+        medianEnd: c(median),
+        range: c([p5, p95]),
+        annualVol: c(sigmaAnnual),
+        annualDrift: c(muAnnual),
+        paths: computed(PATHS, [], 'Fixed model parameter (10,000 simulated paths, 252 trading days, fixed seed)'),
+      };
+    })(),
   };
 }

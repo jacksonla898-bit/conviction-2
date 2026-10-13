@@ -8,7 +8,6 @@ import { fmt, fmtPct } from '../models/_math.js';
 import { PortfolioFanChart, PortfolioHistogram, CorrelationTable, PerModelBars, DrawdownChart } from './charts.jsx';
 import { StandardReasoning, MathModeBadge } from './Reasoning.jsx';
 import { exportElementToPdf } from '../lib/exportPdf.js';
-import { api } from '../lib/api.js';
 
 const PART_COLORS = { conviction: '#3987e5', target: '#9085e9', risk: '#199e70' };
 const SHORT = { dcf: 'DCF', monteCarlo: 'MC', risk: 'Risk', momentum: 'Mom', health: 'Health', earnings: 'Earn' };
@@ -411,10 +410,12 @@ export default function PortfolioPage({ settings, onOpenStock }) {
   }, [def, settings]);
 
   const generate = useCallback(async () => {
-    if (!analysis || analysis.score.score === null) return;
+    if (settings.mode !== 'standard' || !analysis || analysis.score.score === null) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
     const payload = buildPortfolioPayload(def, analysis, settings);
-    const res = await api.reason(def.name || 'Untitled portfolio', payload);
+    // The AI module is loaded only here, and only in Standard mode.
+    const { requestReasoning } = await import('../lib/ai.js');
+    const res = await requestReasoning('standard', def.name || 'Untitled portfolio', payload);
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });

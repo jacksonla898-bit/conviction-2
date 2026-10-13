@@ -16,7 +16,8 @@
 //     liquidScore  = clamp( 50 · CR, 0, 100 )              → CR = 2 scores 100
 //     fcfScore     = 100 if latest FCF > 0 and FCF grew; 50 if FCF > 0 but shrank; 0 if latest FCF ≤ 0
 
-import { clamp, cagr, fmt, fmtPct, fmtMoney, unavailable } from './_math.js';
+import { clamp, cagr, fmt, fmtPct, fmtMoney, unavailable, topDrivers } from './_math.js';
+import { SRC, fetched, computed, missing, secInput } from '../lib/provenance.js';
 
 export const ID = 'health';
 export const NAME = 'Financial health';
@@ -43,9 +44,12 @@ export function buildAnnualTable(series, maxYears = 5) {
       const cur = get('debtCurrent');
       if (lt !== null || cur !== null) totalDebt = (lt || 0) + (cur || 0);
     }
+    const filing = (series.revenue || []).find((r) => r.year === year) || (series.netIncome || []).find((r) => r.year === year) || (series.operatingCashFlow || []).find((r) => r.year === year) || {};
     return {
       year,
-      end: ((series.revenue || []).find((r) => r.year === year) || {}).end || null,
+      end: filing.end || null,
+      form: filing.form || null, // filing type the value came from, e.g. 10-K
+      filed: filing.filed || null, // date that filing was submitted to the SEC
       revenue,
       grossProfit,
       operatingIncome: get('operatingIncome'),
@@ -150,7 +154,7 @@ export function runHealth({ fundamentals }) {
     metrics: { fiscalYears: table.map((r) => r.year), latestFiscalYearEnd: last.end, revenue: last.revenue, revGrowth, revCagr, grossMargin, opMargin, netMargin, debtToEquity, currentRatio, fcfLatest: fcfLast, fcfCagr: Number.isFinite(fcfCagr) ? fcfCagr : null, fcfGrew, components: Object.fromEntries(components.map((c) => [c.name, c.value])) },
     inputs: [
       { label: 'Company', value: `${fundamentals.companyName} (CIK ${fundamentals.cik})`, source: 'SEC company_tickers.json' },
-      { label: 'Fiscal years', value: table.map((r) => r.year).join(', '), source: 'EDGAR companyfacts, 10-K annual values' },
+      { label: 'Fiscal years', value: table.map((r) => r.year).join(', '), source: `SEC EDGAR companyfacts; latest is ${last.form || '10-K'}, FY${last.year}${last.filed ? `, filed ${last.filed}` : ''}` },
       { label: 'Revenue tag', value: tags.revenue || 'n/a', source: 'us-gaap' },
       { label: 'Net income tag', value: tags.netIncome || 'n/a', source: 'us-gaap' },
       { label: 'Cash-flow tags', value: `${tags.operatingCashFlow || 'n/a'} − ${tags.capex || 'n/a'}`, source: 'us-gaap' },
@@ -159,5 +163,29 @@ export function runHealth({ fundamentals }) {
     steps,
     chart: { rows: chartRows },
     table,
+    keyOutput: `Revenue growth ${revGrowth === null ? 'Unavailable' : fmtPct(revGrowth)}; net margin ${netMargin === null ? 'Unavailable' : fmtPct(netMargin)}; debt/equity ${debtToEquity === null ? 'Unavailable' : fmt(debtToEquity)}`,
+    drivers: topDrivers(components.map((c) => {
+      switch (c.name) {
+        case 'growthScore': return { label: 'Revenue growth YoY', value: fmtPct(revGrowth), score: c.value };
+        case 'marginScore': return { label: 'Net margin', value: fmtPct(netMargin), score: c.value };
+        case 'debtScore': return { label: 'Debt / equity', value: fmt(debtToEquity), score: c.value };
+        case 'liquidityScore': return { label: 'Current ratio', value: fmt(currentRatio), score: c.value };
+        default: return { label: 'Free cash flow trend', value: fcfLast <= 0 ? 'negative' : fcfGrew ? 'positive and growing' : 'positive but shrinking', score: c.value };
+      }
+    })),
+    provenance: (() => {
+      const sLast = secInput(last);
+      const sPrev = secInput(prev);
+      const none = (what) => missing(`SEC EDGAR companyfacts has no ${what} for FY${last.year} (${last.form || '10-K'}).`, SRC.SEC);
+      const fcfRowLast = fcfRows.length ? fcfRows[fcfRows.length - 1] : null;
+      return {
+        revenue: fetched(last.revenue, SRC.SEC, last.end, sLast.detail),
+        revGrowth: revGrowth === null ? none('prior-year revenue') : computed(revGrowth, [sLast, sPrev]),
+        margins: grossMargin === null && opMargin === null && netMargin === null ? none('gross profit, operating income or net income') : computed([grossMargin, opMargin, netMargin], [sLast]),
+        debtToEquity: debtToEquity === null ? none(last.totalDebt === null ? 'total debt' : 'stockholders\' equity') : computed(debtToEquity, [sLast]),
+        currentRatio: currentRatio === null ? none(last.currentAssets === null ? 'current assets' : 'current liabilities') : computed(currentRatio, [sLast]),
+        fcfLatest: fcfRowLast === null ? none('operating cash flow and capex') : computed(fcfLast, [secInput(fcfRowLast, 'operating cash flow and capex')]),
+      };
+    })(),
   };
 }

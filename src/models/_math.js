@@ -130,6 +130,18 @@ export function fmtShares(x) {
   return String(Math.round(x));
 }
 
+/**
+ * The n components whose 0–100 score sits furthest from neutral (50): the inputs that moved a subscore most.
+ * components: [{ label, value (already formatted), score }]. Returns template rows [{ label, value }].
+ */
+export function topDrivers(components, n = 2) {
+  return [...components]
+    .filter((c) => Number.isFinite(c.score))
+    .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50))
+    .slice(0, n)
+    .map((c) => ({ label: c.label, value: `${c.value} (component score ${c.score.toFixed(0)})` }));
+}
+
 /** Standard "unavailable" result so the UI and score aggregator can treat every model the same way. */
 export function unavailable(id, name, reason) {
   return { id, name, available: false, error: reason, subscore: null, metrics: {}, inputs: [], steps: [], chart: null };

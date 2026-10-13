@@ -29,6 +29,9 @@ export default async function handler(req, res) {
     const apiKey = requireEnv('ANTHROPIC_API_KEY');
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const { ticker, payload } = body;
+    // Wharton mode must never reach the AI. The client never calls this endpoint outside Standard mode;
+    // this server-side check makes that impossible even if a caller tried.
+    if (body.mode !== 'standard') return sendJson(res, 403, { error: 'AI reasoning is only available in Standard mode.' });
     if (!ticker || !payload) return sendJson(res, 400, { error: 'Missing ticker or payload.' });
 
     const text = JSON.stringify(payload);

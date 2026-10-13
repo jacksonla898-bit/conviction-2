@@ -72,7 +72,7 @@ function annualSeries(units, instant) {
     const year = Number(f.end.slice(0, 4));
     const prev = byYear.get(year);
     if (!prev || f.filed > prev.filed || (f.filed === prev.filed && f.end > prev.end)) {
-      byYear.set(year, { year, end: f.end, value: f.val, filed: f.filed, fy: f.fy });
+      byYear.set(year, { year, end: f.end, value: f.val, filed: f.filed, fy: f.fy, form: f.form });
     }
   }
   return [...byYear.values()].sort((a, b) => a.end.localeCompare(b.end));
