@@ -45,10 +45,16 @@ export default function AboutPage({ onTry }) {
       </section>
 
       <section className="card p-5 md:p-6 space-y-3 text-sm text-ink-2 leading-relaxed">
+        <h3 className="font-semibold text-ink">ETFs, Treasuries, the Grader and the Optimizer</h3>
+        <p>The Stock box also accepts an equity ETF, a bond ETF or a Treasury (US2Y, US5Y, US10Y, US30Y). The asset type is detected on the server and the matching components run: for an equity ETF, expense ratio, liquidity, momentum, volatility, drawdown and Sharpe; for a bond ETF, distribution yield, duration, credit quality, spread versus the matching Treasury, volatility and drawdown; for a Treasury, its yield, duration and where it sits on the yield curve. Fund facts the free data plans do not provide (expense ratio, assets under management, SEC yield, official duration, credit quality) are shown as unavailable and left out of the score, with the remaining weights re-normalized.</p>
+        <p>The <strong className="text-ink">Grader</strong> scores a whole portfolio: 40% holding quality (the holdings' own scores, weighted), 30% diversification (concentration, average correlation, mix of asset classes) and 30% risk (volatility, beta, drawdown, value at risk, Sharpe). The <strong className="text-ink">Optimizer</strong> finds the weights with the best historical Sharpe ratio for a chosen risk level, keeping every holding between 2% and 30%, and turns them into whole shares for your dollar amount. It is optimized on historical data; past performance does not predict future results.</p>
+      </section>
+
+      <section className="card p-5 md:p-6 space-y-3 text-sm text-ink-2 leading-relaxed">
         <h3 className="font-semibold text-ink">What it is not</h3>
         <p>It is not investment advice, and it does not predict the future. The DCF is deliberately conservative and will call most fast-growing, highly valued companies expensive. The Monte Carlo and target simulations assume the near future resembles the recent past. Fundamentals come from annual filings and can be up to a year old. The backtest lets you see these weaknesses for yourself rather than hiding them.</p>
         <h3 className="font-semibold text-ink pt-2">Data and code</h3>
-        <p>Prices: Alpaca Market Data (IEX feed). Fundamentals: SEC EDGAR XBRL company facts. Earnings and insider transactions: Finnhub. Risk-free rate: U.S. Treasury daily yield curve. Explanations in Standard mode: Claude (Anthropic), fed only computed numbers. All model math is hand-written JavaScript with no finance libraries; the source is at <a className="text-s1 hover:underline" href={REPO_URL} target="_blank" rel="noreferrer">{REPO_URL.replace('https://', '')}</a>.</p>
+        <p>Prices: Alpaca Market Data (IEX feed). Fundamentals: SEC EDGAR XBRL company facts. Earnings and insider transactions: Finnhub. Treasury yields, risk-free rate and the yield curve: FRED (Federal Reserve Bank of St. Louis), with the U.S. Treasury daily yield curve as a fallback. ETF cash distributions: Alpaca corporate actions. Explanations in Standard mode: Claude (Anthropic), fed only computed numbers. All model math is hand-written JavaScript with no finance libraries; the source is at <a className="text-s1 hover:underline" href={REPO_URL} target="_blank" rel="noreferrer">{REPO_URL.replace('https://', '')}</a>.</p>
       </section>
     </div>
   );

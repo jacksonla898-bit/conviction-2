@@ -36,11 +36,11 @@ export function scoreLabel(score) {
  * @param {Record<string, {available:boolean, subscore:number|null}>} results keyed by model id
  * @param {Record<string, number>} weights
  */
-export function computeConviction(results, weights = DEFAULT_WEIGHTS) {
+export function computeConviction(results, weights = DEFAULT_WEIGHTS, order = MODEL_ORDER) {
   const included = [];
   const excluded = [];
   let sumW = 0;
-  for (const id of MODEL_ORDER) {
+  for (const id of order) {
     const w = Number(weights[id]) || 0;
     const r = results[id];
     if (r && r.available && typeof r.subscore === 'number' && w > 0) {

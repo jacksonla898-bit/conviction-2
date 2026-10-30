@@ -15,7 +15,8 @@
 //   A model that is unavailable (or has weight 0) contributes 0 and is shown as excluded; the weights
 //   of the remaining models are re-normalized to sum to 100%.
 
-import { MODEL_ORDER, MODEL_LABELS } from './conviction.js';
+import { MODEL_ORDER, MODEL_LABELS as STOCK_LABELS } from './conviction.js';
+const MODEL_LABELS = STOCK_LABELS;
 
 export const NEUTRAL = 50;
 
@@ -56,14 +57,15 @@ export function roundToSum(values, decimals = 1) {
  * @param results model results keyed by id
  * @param weights nominal weights from Settings
  */
-export function computeAttribution(conviction, results, weights) {
+export function computeAttribution(conviction, results, weights, order = MODEL_ORDER, labels = MODEL_LABELS) {
   if (!conviction || conviction.score === null || conviction.score === undefined) return null;
   const included = conviction.breakdown;
   const raw = included.map((b) => b.normWeight * (b.subscore - NEUTRAL));
   const { values, units } = roundToSum(raw, 1);
+  const MODEL_LABELS = labels; // shadows the import for the rows below
 
   let cum = NEUTRAL * 10; // running total in tenths
-  const rows = MODEL_ORDER.map((id) => {
+  const rows = order.map((id) => {
     const idx = included.findIndex((b) => b.id === id);
     const r = results ? results[id] : null;
     if (idx === -1) {

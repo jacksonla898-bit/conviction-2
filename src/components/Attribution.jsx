@@ -18,7 +18,7 @@ export function waterfallData(attribution) {
     { key: 'neutral', name: 'Neutral', range: [lo, neutral], kind: 'anchor', text: String(neutral) },
     ...rows.map((r) => ({
       key: r.id,
-      name: SHORT_LABELS[r.id],
+      name: SHORT_LABELS[r.id] || r.label,
       range: [Math.min(r.start, r.end), Math.max(r.start, r.end)],
       kind: r.excluded ? 'excluded' : r.units >= 0 ? 'pos' : 'neg',
       text: r.excluded ? 'excluded' : signed(r.contribution),

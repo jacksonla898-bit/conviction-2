@@ -12,6 +12,10 @@ import BacktestPage from './components/BacktestPage.jsx';
 import HistoryPage from './components/HistoryPage.jsx';
 import AboutPage from './components/AboutPage.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
+import GraderPage from './components/GraderPage.jsx';
+import OptimizerPage from './components/OptimizerPage.jsx';
+import AssetAnalysis from './components/AssetAnalysis.jsx';
+import { runAssetAnalysis } from './lib/assetPipeline.js';
 import { StandardReasoning, WhartonReasoning } from './components/Reasoning.jsx';
 import { fetchAll, runModels, emptyRaw, MODEL_SOURCES, SOURCES, buildReasoningPayload, sinceThen, dataSources } from './lib/pipeline.js';
 import { computeConviction, MODEL_ORDER, scoreLabel } from './models/conviction.js';
@@ -29,6 +33,8 @@ const IDLE_REASONING = { status: 'idle', text: null, error: null, model: null };
 const VIEWS = [
   ['stock', 'Stock'],
   ['portfolio', 'Portfolio'],
+  ['grader', 'Grader'],
+  ['optimize', 'Optimize'],
   ['compare', 'Compare'],
   ['backtest', 'Backtest'],
   ['history', 'History'],
@@ -81,6 +87,9 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [logState, setLogState] = useState({ status: 'idle', reason: null });
   const [reportState, setReportState] = useState({ status: 'idle', error: null, filename: null });
+  const [assetRun, setAssetRun] = useState(null); // {status, analysis} when the ticker is an ETF/Treasury (not a stock)
+  const [seedTickers, setSeedTickers] = useState('');
+  const esRef = useRef(null);
   const mcCache = useRef({});
   const runId = useRef(0);
   const savedFor = useRef(null);
@@ -112,6 +121,7 @@ export default function App() {
     }
     return { ...settings, riskFreeRate: '', riskFreeSource: 'unavailable', riskFreeProv: null, asOf };
   }, [settings, rfNow, rfRun, asOf]);
+  esRef.current = effectiveSettings;
 
   // Re-run the math whenever raw data or settings change (no refetch).
   useEffect(() => {
@@ -195,6 +205,24 @@ export default function App() {
     setFetching(true);
     setCopied(false);
     writeUrl({ view: 'stock', ticker: t, asOf: a });
+    // Asset-type detection (server-side): ETFs and Treasuries take their own path; stocks keep the existing flow.
+    setAssetRun({ status: 'loading', analysis: null });
+    const det = await api.asset(t);
+    if (runId.current !== myRun) return;
+    if (det.ok && det.data.assetType !== 'stock') {
+      setRaw(emptyRaw());
+      let analysis;
+      try {
+        analysis = await runAssetAnalysis(det.data.ticker || t, esRef.current, { asOf: a });
+      } catch (err) {
+        analysis = { ticker: t, assetType: 'unsupported', error: `Analysis failed: ${err.message}`, conviction: { score: null, label: 'n/a', breakdown: [], excluded: [] }, order: [], labels: {}, results: {}, dailyReturns: [], sources: [] };
+      }
+      if (runId.current !== myRun) return;
+      setAssetRun({ status: 'done', analysis });
+      setFetching(false);
+      return;
+    }
+    setAssetRun(null);
     if (a) {
       setRfRun(null);
       api.riskfree(a).then((res) => {
@@ -264,7 +292,7 @@ export default function App() {
 
   // Development aid only (never in production builds): lets automated checks read the exact numbers on screen.
   useEffect(() => {
-    if (import.meta.env.DEV) window.__run = { ticker, mode: settings.mode, complete, conviction, attribution, results, sources, logState, reasoningStatus: reasoning.status };
+    if (import.meta.env.DEV) window.__run = { ticker, mode: settings.mode, complete, conviction, attribution, results, sources, logState, reasoningStatus: reasoning.status, assetRun };
   });
 
   const rfMissing = effectiveSettings.riskFreeRate === '' || effectiveSettings.riskFreeRate === null;
@@ -278,6 +306,12 @@ export default function App() {
     analyze(sym, asOfDate);
     window.scrollTo({ top: 0 });
   }, [analyze]);
+  const openOptimizer = useCallback((tickers) => {
+    setSeedTickers(tickers.join(' '));
+    setSettings((s) => ({ ...s, view: 'optimize' }));
+    writeUrl({ view: 'optimize' });
+    window.scrollTo({ top: 0 });
+  }, []);
   const copyLink = useCallback(async () => {
     const url = `${window.location.origin}/?t=${encodeURIComponent(ticker)}${asOf ? `&asof=${asOf}` : ''}`;
     try {
@@ -319,6 +353,8 @@ export default function App() {
         {showSettings && <SettingsPanel settings={settings} onChange={setSettings} onClose={() => setShowSettings(false)} rfInfo={asOf ? rfRun : rfNow} />}
 
         {view === 'portfolio' && <PortfolioPage settings={effectiveSettings} onOpenStock={openStock} />}
+        {view === 'grader' && <GraderPage settings={effectiveSettings} onOpenStock={openStock} onOptimize={openOptimizer} />}
+        {view === 'optimize' && <OptimizerPage settings={effectiveSettings} seedTickers={seedTickers} onOpenStock={openStock} />}
         {view === 'compare' && <ComparePage settings={effectiveSettings} onOpenStock={openStock} />}
         {view === 'backtest' && <BacktestPage settings={effectiveSettings} onOpenStock={openStock} />}
         {view === 'history' && <HistoryPage onOpenStock={openStock} />}
@@ -328,7 +364,7 @@ export default function App() {
           <form className="card p-4 flex flex-col sm:flex-row gap-3 sm:items-end" onSubmit={(e) => { e.preventDefault(); analyze(input, asOfInput || null); }}>
             <label className="flex-1">
               <span className="text-xs text-ink-2 block mb-1">Ticker</span>
-              <input className="input text-lg uppercase" placeholder="e.g. AAPL" value={input} onChange={(e) => setInput(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+              <input className="input text-lg uppercase" placeholder="e.g. AAPL, SPY, TLT, US10Y" value={input} onChange={(e) => setInput(e.target.value)} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
             </label>
             <label className="sm:w-48">
               <span className="text-xs text-ink-2 block mb-1">As of (optional)</span>
@@ -345,7 +381,11 @@ export default function App() {
           </div>
         )}
 
-        {view === 'stock' && ticker && (
+        {view === 'stock' && ticker && assetRun && (
+          <AssetAnalysis analysis={assetRun.analysis} loading={assetRun.status === 'loading'} settings={effectiveSettings} onCopyLink={copyLink} copied={copied} />
+        )}
+
+        {view === 'stock' && ticker && !assetRun && (
           <div className="space-y-5">
             <ScoreCard ticker={ticker} companyName={companyName} price={price} priceDate={priceDate} conviction={conviction} pending={!complete} asOf={asOf} onCopyLink={copyLink} copied={copied} priceProv={priceProv} scoreProv={scoreProv} />
 

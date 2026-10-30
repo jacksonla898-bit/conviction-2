@@ -33,6 +33,10 @@ export const api = {
   earnings: (ticker, asOf) => getJson(`/api/earnings?${q(ticker, asOf)}`),
   insiders: (ticker, asOf) => getJson(`/api/insiders?${q(ticker, asOf)}`),
   riskfree: (asOf) => getJson(`/api/riskfree${asOf ? `?asof=${encodeURIComponent(asOf)}` : ''}`),
+  // Asset-type detection and fund facts (ETF profile, dividends). Treasury tickers are answered without a provider call.
+  asset: (ticker) => getJson(`/api/asset?ticker=${encodeURIComponent(ticker)}`),
+  // FRED Treasury yields through the server (the FRED key never reaches the browser).
+  fred: (series, { start, end, latest } = {}) => getJson(`/api/fred?series=${encodeURIComponent(Array.isArray(series) ? series.join(',') : series)}${start ? `&start=${start}` : ''}${end ? `&end=${end}` : ''}${latest ? '&latest=1' : ''}`),
   // Analysis log (Supabase, server-side only). Writes one row per completed analysis; reads the history.
   logAnalysis: (payload) => getJson('/api/analyses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   history: ({ ticker = '', order = 'desc', limit = 300 } = {}) => getJson(`/api/analyses?order=${order}&limit=${limit}${ticker ? `&ticker=${encodeURIComponent(ticker)}` : ''}`),

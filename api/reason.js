@@ -14,6 +14,12 @@ Rules you must follow:
 - Each bullet should cite the specific metric and value from the payload that supports it.
 - Keep it under 350 words.`;
 
+const RULES = `You are an analyst explaining quantitative model output in plain English.
+Rules you must follow:
+- Use ONLY the numbers in the JSON payload. Do not invent, estimate, or recall any figure that is not in the payload. If something is marked unavailable, say it is unavailable.
+- Do not give personalized investment advice or tell the reader to buy or sell.
+- Each bullet should cite the specific metric and value from the payload that supports it.`;
+
 const PORTFOLIO_SYSTEM = `You are an equity analyst reviewing a reader's portfolio thesis against quantitative model output.
 Rules you must follow:
 - Use ONLY the numbers in the JSON payload. Do not invent, estimate, or recall any figure that is not in the payload. If something is missing, say it is unavailable.
@@ -36,23 +42,31 @@ export default async function handler(req, res) {
 
     const text = JSON.stringify(payload);
     if (text.length > 80000) return sendJson(res, 413, { error: 'Payload too large.' });
-    const isPortfolio = payload.kind === 'portfolio';
+    const kind = ['portfolio', 'asset', 'grade', 'optimize'].includes(payload.kind) ? payload.kind : 'stock';
+    const isPortfolio = kind === 'portfolio';
+    const SYSTEMS = {
+      stock: SYSTEM,
+      portfolio: PORTFOLIO_SYSTEM,
+      asset: SYSTEM.replace('a quantitative "conviction score"', 'a quantitative score for an ETF or Treasury built from the component scores in the payload'),
+      grade: `${RULES}\n- Write in Markdown with exactly these sections: "## What drove the grade", "## Strengths", "## Weaknesses", "## What to watch".\n- Refer to the three pillars (holding quality, diversification, risk) and the named components and holdings with their values. Keep it under 350 words.`,
+      optimize: `${RULES}\n- Write in Markdown with exactly these sections: "## What the optimizer did", "## Why these weights", "## Caveats".\n- Explain the chosen weights only from the payload's historical returns, volatilities, constraints and scores. If the score after is below the score before, explain it using the payload. Always end with: "Optimized on historical data. Past performance does not predict future results." Keep it under 300 words.`,
+    };
+    const PROMPTS = {
+      stock: `Ticker: ${ticker}\n\nComputed metrics and subscores (JSON):\n${text}\n\nExplain what drove the conviction score, the strongest bull and bear points from these numbers, and the key risks.`,
+      portfolio: `Portfolio: ${ticker}\n\nComputed portfolio and per-holding metrics, parameters and the reader's thesis (JSON):\n${text}\n\nAssess whether the numbers support the thesis and the growth target over the stated horizon, what helps, what hurts, and what would have to be true for the target to be met.`,
+      asset: `Asset: ${ticker}\n\nComputed component scores and metrics (JSON):\n${text}\n\nExplain what drove the score, the strongest positive and negative points from these numbers, and the key risks. Components marked unavailable must be described as unavailable, never guessed.`,
+      grade: `Portfolio grade (JSON):\n${text}\n\nExplain what drove the Portfolio Conviction Score using only these numbers.`,
+      optimize: `Optimizer result (JSON):\n${text}\n\nExplain the chosen allocation using only these numbers.`,
+    };
 
     // Pin the base URL so a stray ANTHROPIC_BASE_URL in the environment (e.g. a local proxy) cannot redirect the call.
     const client = new Anthropic({ apiKey, baseURL: 'https://api.anthropic.com' });
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 1800,
-      system: isPortfolio ? PORTFOLIO_SYSTEM : SYSTEM,
+      system: SYSTEMS[kind],
       output_config: { effort: 'low' },
-      messages: [
-        {
-          role: 'user',
-          content: isPortfolio
-            ? `Portfolio: ${ticker}\n\nComputed portfolio and per-holding metrics, parameters and the reader's thesis (JSON):\n${text}\n\nAssess whether the numbers support the thesis and the growth target over the stated horizon, what helps, what hurts, and what would have to be true for the target to be met.`
-            : `Ticker: ${ticker}\n\nComputed metrics and subscores (JSON):\n${text}\n\nExplain what drove the conviction score, the strongest bull and bear points from these numbers, and the key risks.`,
-        },
-      ],
+      messages: [{ role: 'user', content: PROMPTS[kind] }],
     });
 
     if (response.stop_reason === 'refusal') {

@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const ALL_NAMES = ['ALPACA_KEY_ID', 'ALPACA_SECRET_KEY', 'FINNHUB_API_KEY', 'ANTHROPIC_API_KEY', 'SEC_USER_AGENT', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const ALL_NAMES = ['ALPACA_KEY_ID', 'ALPACA_SECRET_KEY', 'FINNHUB_API_KEY', 'ANTHROPIC_API_KEY', 'SEC_USER_AGENT', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'FRED_API_KEY'];
 const only = process.argv.slice(2);
 const NAMES = only.length ? ALL_NAMES.filter((n) => only.includes(n)) : ALL_NAMES;
 const text = fs.readFileSync('.env.local', 'utf8');

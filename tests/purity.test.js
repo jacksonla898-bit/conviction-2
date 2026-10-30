@@ -28,9 +28,9 @@ test('the AI module is never imported statically', () => {
   for (const f of srcFiles) assert.ok(!staticImport.test(fs.readFileSync(f, 'utf8')), `${rel(f)} statically imports the AI module`);
 });
 
-test('only the two Standard-mode call sites load the AI module (dynamically)', () => {
+test('only the Standard-mode call sites load the AI module (dynamically)', () => {
   const users = srcFiles.filter((f) => rel(f) !== 'src/lib/ai.js' && /ai\.js/.test(fs.readFileSync(f, 'utf8'))).map(rel).sort();
-  assert.deepEqual(users, ['src/App.jsx', 'src/components/PortfolioPage.jsx']);
+  assert.deepEqual(users, ['src/App.jsx', 'src/components/AssetAnalysis.jsx', 'src/components/GraderPage.jsx', 'src/components/OptimizerPage.jsx', 'src/components/PortfolioPage.jsx']);
   for (const u of users) {
     const text = fs.readFileSync(path.join(root, u), 'utf8');
     // Every load must sit behind a Standard-mode check, and the call must pass the literal mode.
@@ -40,7 +40,8 @@ test('only the two Standard-mode call sites load the AI module (dynamically)', (
 });
 
 test('Wharton-path modules do not mention the AI module at all', () => {
-  const whartonPath = ['src/lib/reportData.js', 'src/lib/tearSheet.js', 'src/components/report/TearSheet.jsx', 'src/components/Reasoning.jsx', 'src/components/Attribution.jsx', 'src/components/DcfScenarios.jsx', 'src/components/Prov.jsx', 'src/components/HistoryPage.jsx', 'src/lib/logPayload.js', 'src/lib/provenance.js', 'src/lib/api.js'];
+  const whartonPath = ['src/lib/reportData.js', 'src/lib/tearSheet.js', 'src/components/report/TearSheet.jsx', 'src/components/Reasoning.jsx', 'src/components/Attribution.jsx', 'src/components/DcfScenarios.jsx', 'src/components/Prov.jsx', 'src/components/HistoryPage.jsx', 'src/lib/logPayload.js', 'src/lib/provenance.js', 'src/lib/api.js',
+    'src/components/Methodology.jsx', 'src/components/AssetModelCard.jsx', 'src/components/chartsPortfolio.jsx', 'src/lib/assetPipeline.js', 'src/lib/portfolioData.js', 'src/models/assets.js', 'src/models/bondMath.js', 'src/models/portfolioGrade.js', 'src/models/optimizer.js'];
   for (const p of whartonPath) {
     const text = fs.readFileSync(path.join(root, p), 'utf8');
     assert.ok(!/['"][^'"]*\/ai\.js['"]/.test(text), `${p} references the AI module`);

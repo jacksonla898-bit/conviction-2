@@ -14,7 +14,7 @@ function labelColor(label) {
   }
 }
 
-export default function ScoreCard({ ticker, companyName, price, priceDate, conviction, pending, asOf, onCopyLink, copied, priceProv, scoreProv }) {
+export default function ScoreCard({ ticker, companyName, price, priceDate, conviction, pending, asOf, onCopyLink, copied, priceProv, scoreProv, priceText }) {
   const { score, label, breakdown, excluded } = conviction;
   return (
     <section className="card p-5 md:p-6" id="score-card">
@@ -30,7 +30,8 @@ export default function ScoreCard({ ticker, companyName, price, priceDate, convi
         <div className="md:ml-auto md:text-right">
           <div className="text-2xl font-bold tracking-tight">{ticker}</div>
           {companyName && <div className="text-sm text-ink-2 truncate max-w-[260px]">{companyName}</div>}
-          {price && <div className="num text-sm text-muted">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · close {priceDate}<Prov p={priceProv} /></div>}
+          {priceText && <div className="num text-sm text-muted">{priceText}</div>}
+          {!priceText && price && <div className="num text-sm text-muted">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · close {priceDate}<Prov p={priceProv} /></div>}
           {onCopyLink && <button className="text-xs text-s1 hover:underline mt-1" onClick={onCopyLink}>{copied ? 'Link copied' : 'Copy link to this analysis'}</button>}
         </div>
       </div>
