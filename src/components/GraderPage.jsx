@@ -1,35 +1,31 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeMany, benchmarkReturns, unitPrice } from '../lib/portfolioData.js';
 import { gradePortfolio, normalizeHoldings, PILLAR_LABELS, CLASS_LABELS } from '../models/portfolioGrade.js';
 import { ASSET_TYPE_LABELS } from '../models/assets.js';
-import { fmt, fmtPct } from '../models/_math.js';
+import { fmtPct } from '../models/_math.js';
 import { AllocationPie, CorrelationHeatmap, CumulativeChart } from './chartsPortfolio.jsx';
 import { DrawdownChart } from './charts.jsx';
 import ChartBlock from './ChartBlock.jsx';
 import Methodology from './Methodology.jsx';
-import { StandardReasoning } from './Reasoning.jsx';
-import { loadJson, saveJson } from '../lib/storage.js';
+import PortfolioPage from './PortfolioPage.jsx';
+import ScoreHeader from './results/ScoreHeader.jsx';
+import DriversCard from './results/DriversCard.jsx';
+import { ReasoningSection, ExportPdfButton, pdfName } from './results/common.jsx';
+import SavePortfolioButton from './SavePortfolioButton.jsx';
+import { Tabs, SkeletonCard, ErrorState, Unavailable, EmptyState, MetricLabel, InfoButton } from './ui.jsx';
+import { labelText, scoreClass } from '../lib/labels.js';
 
-const DRAFT_KEY = 'conviction2.graderDraft.v1';
-const PILLAR_COLORS = { quality: '#3987e5', diversification: '#199e70', risk: '#9085e9' };
-
-function labelColor(label) {
-  switch (label) {
-    case 'Low': return '#e66767';
-    case 'Neutral': return '#fab219';
-    case 'High': return '#3ecf3e';
-    case 'Very High': return '#0ca30c';
-    default: return '#898781';
-  }
-}
-const scoreClass = (s) => (s === null || s === undefined ? 'bg-surface-2 text-muted' : s < 40 ? 'bg-[#d03b3b22] text-[#e66767]' : s < 60 ? 'bg-[#c9850022] text-[#fab219]' : 'bg-[#0ca30c22] text-[#3ecf3e]');
+const PILLAR_COLORS = { quality: 'var(--chart-1)', diversification: 'var(--chart-2)', risk: 'var(--chart-3)' };
 const signed = (x) => `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x).toFixed(1)}`;
+const MODE_UNIT = { percent: '%', dollars: '$', shares: ' sh' };
+
+export const holdingsKey = (portfolio) => JSON.stringify([portfolio.mode, portfolio.holdings.filter((h) => h.ticker.trim() && Number(h.amount) > 0).map((h) => [h.ticker.trim().toUpperCase(), Number(h.amount)])]);
 
 /** Fixed-template summary of a grade (no AI). */
 export function gradeSummary(g) {
   if (!g || g.score === null) return ['No portfolio score could be computed.', ...(g ? g.notes : [])];
   const p = Object.fromEntries(g.pillars.map((r) => [r.id, r]));
-  const paras = [`This portfolio scores ${g.score} out of 100 (${g.label} conviction): ${p.quality.score !== null ? `holding quality ${p.quality.score.toFixed(0)}` : 'holding quality unavailable'}, ${p.diversification.score !== null ? `diversification ${p.diversification.score.toFixed(0)}` : 'diversification unavailable'}, ${p.risk.score !== null ? `risk ${p.risk.score.toFixed(0)}` : 'risk unavailable'}, blended ${g.pillars.filter((r) => r.score !== null).map((r) => `${(r.normWeight * 100).toFixed(0)}% ${r.label.toLowerCase()}`).join(', ')}.`];
+  const paras = [`This portfolio scores ${g.score} out of 100 (${labelText(g.label)}): ${p.quality.score !== null ? `holding quality ${p.quality.score.toFixed(0)}` : 'holding quality unavailable'}, ${p.diversification.score !== null ? `diversification ${p.diversification.score.toFixed(0)}` : 'diversification unavailable'}, ${p.risk.score !== null ? `risk ${p.risk.score.toFixed(0)}` : 'risk unavailable'}, blended ${g.pillars.filter((r) => r.score !== null).map((r) => `${(r.normWeight * 100).toFixed(0)}% ${r.label.toLowerCase()}`).join(', ')}.`];
   const top = g.drivers.filter((d) => d.points > 0).slice(0, 3);
   const bottom = g.drivers.filter((d) => d.points < 0).slice(-3).reverse();
   if (top.length) paras.push(`What helps most: ${top.map((d) => `${d.label} (${d.detail}, ${signed(d.points)} points)`).join('; ')}.`);
@@ -66,40 +62,47 @@ export async function gradeHoldings(holdingRows, analyses, settings) {
   const grade = gradePortfolio({ holdings, spy: bench.spy, agg: bench.agg, rf });
   if (!bench.spy) grade.notes.unshift(`SPY history unavailable: ${bench.spyError}`);
   if (!bench.agg) grade.notes.unshift(`AGG history unavailable: ${bench.aggError}`);
-  return { grade, holdings };
+  return { grade, holdings, bench };
 }
 
-export default function GraderPage({ settings, onOpenStock, onOptimize }) {
-  const [draft, setDraft] = useState(() => loadJson(DRAFT_KEY, null) || { rows: [{ ticker: 'SPY', amount: '60' }, { ticker: 'AGG', amount: '40' }, { ticker: '', amount: '' }], mode: 'percent' });
+const DETAIL_TABS = [{ id: 'holdings', label: 'Holdings' }, { id: 'diversification', label: 'Diversification' }, { id: 'risk', label: 'Risk' }, { id: 'thesis', label: 'Thesis & target' }];
+
+export default function GraderPage({ settings, portfolio, setPortfolio, lastGrade, onGraded, onOpenStock, onGoTab, onSave }) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({});
   const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
+  const [tab, setTab] = useState('holdings');
   const [reasoning, setReasoning] = useState({ status: 'idle', text: null, error: null, model: null });
   const autoFor = useRef(null);
-  useEffect(() => { saveJson(DRAFT_KEY, draft); }, [draft]);
+  const ref = useRef(null);
+  const key = holdingsKey(portfolio);
+  const result = lastGrade && lastGrade.kind === 'grade' && lastGrade.key === key ? lastGrade : null;
 
-  const setRow = (i, patch) => setDraft((d) => ({ ...d, rows: d.rows.map((r, k) => (k === i ? { ...r, ...patch } : r)) }));
-  const pctSum = draft.rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const rows = portfolio.holdings;
+  const setRows = (next) => setPortfolio({ holdings: next });
+  const setRow = (i, patch) => setRows(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  const pctSum = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
   const run = async (e) => {
     e.preventDefault();
     setError(null);
-    setResult(null);
     setReasoning({ status: 'idle', text: null, error: null, model: null });
-    const pre = normalizeHoldings(draft.rows, draft.mode === 'shares' ? 'dollars' : draft.mode); // validation only (shares need prices)
-    if (draft.mode !== 'shares' && pre.error) return setError(pre.error);
-    const tickers = draft.rows.filter((r) => r.ticker.trim() && Number(r.amount) > 0).map((r) => r.ticker.trim().toUpperCase());
+    if (portfolio.mode !== 'shares') {
+      const pre = normalizeHoldings(rows, portfolio.mode);
+      if (pre.error) return setError(pre.error);
+    }
+    const tickers = rows.filter((r) => r.ticker.trim() && Number(r.amount) > 0).map((r) => r.ticker.trim().toUpperCase());
     if (!tickers.length) return setError('Enter at least one holding.');
     setRunning(true);
     setProgress(Object.fromEntries(tickers.map((t) => [t, 'queued'])));
     try {
       const analyses = await analyzeMany(tickers, settings, (t, s) => setProgress((p) => ({ ...p, [t]: s })));
       const prices = Object.fromEntries(Object.entries(analyses).map(([t, a]) => [t, unitPrice(a)]));
-      const norm = normalizeHoldings(draft.rows, draft.mode, prices);
+      const norm = normalizeHoldings(rows, portfolio.mode, prices);
       if (norm.error) return setError(norm.error);
-      const { grade, holdings } = await gradeHoldings(norm.holdings, analyses, settings);
-      setResult({ grade, holdings, analyses, mode: draft.mode });
+      const { grade, holdings, bench } = await gradeHoldings(norm.holdings, analyses, settings);
+      const dollarTotal = portfolio.mode === 'dollars' ? rows.reduce((s, r) => s + (Number(r.amount) || 0), 0) : portfolio.mode === 'shares' ? rows.reduce((s, r) => s + (Number(r.amount) || 0) * (prices[r.ticker.trim().toUpperCase()] || 0), 0) : null;
+      onGraded({ kind: 'grade', key, grade, holdings, analyses, prices, bench, mode: portfolio.mode, dollarTotal });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,124 +128,135 @@ export default function GraderPage({ settings, onOpenStock, onOptimize }) {
   }, [result, settings.mode]);
 
   const g = result?.grade;
-  const summary = g ? gradeSummary(g) : [];
+  const summary = useMemo(() => (g ? gradeSummary(g) : []), [g]);
+  const percentRows = useMemo(() => (result ? result.holdings.map((h) => ({ ticker: h.ticker, amount: (h.weight * 100).toFixed(2) })) : []), [result]);
+  const thesisOverride = useMemo(() => ({ holdings: percentRows, amountMode: 'percent' }), [percentRows]);
+  const holdingRows = rows.filter((r) => r.ticker.trim() && Number(r.amount) > 0).map((r) => ({ ticker: r.ticker.trim().toUpperCase(), amount: String(r.amount) }));
 
   return (
     <div className="space-y-5">
-      <form className="card p-4 md:p-5 space-y-4" onSubmit={run}>
-        <div>
-          <h2 className="font-semibold">Portfolio Grader</h2>
-          <p className="text-xs text-muted mt-1">Enter holdings as percent, dollars or shares. Stocks, equity ETFs, bond ETFs and Treasuries (US2Y, US5Y, US10Y, US30Y) are supported; each is analysed with its own models, then the mix is scored on quality, diversification and risk.</p>
+      <form className="card p-4 md:p-5 space-y-4" onSubmit={run} id="grade-form">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Grade a portfolio</h2>
+            <p className="text-xs text-muted mt-1">Holdings as percent, dollars or shares. Stocks, equity ETFs, bond ETFs and Treasuries (US2Y, US5Y, US10Y, US30Y) are supported. The same holdings carry over to Optimize and Stress Test.</p>
+          </div>
+          {portfolio.activeId && <span className="pill bg-surface-2 text-ink-2">Editing saved: {portfolio.name}</span>}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="block"><div className="text-xs text-ink-2 mb-1">Amounts are</div>
-            <select className="input w-44" value={draft.mode} onChange={(e) => setDraft({ ...draft, mode: e.target.value })}>
+            <select className="input w-48" value={portfolio.mode} onChange={(e) => setPortfolio({ mode: e.target.value })}>
               <option value="percent">percent (must total 100)</option>
               <option value="dollars">dollar amounts</option>
               <option value="shares">share counts</option>
             </select></label>
-          {draft.mode === 'percent' && <div className={`text-xs self-center ${Math.abs(pctSum - 100) > 0.5 ? 'text-[#fab219]' : 'text-muted'}`}>Total {pctSum.toFixed(1)}%</div>}
+          {portfolio.mode === 'percent' && <div className={`text-xs self-center ${Math.abs(pctSum - 100) > 0.5 ? 'text-warn' : 'text-muted'}`}>Total {pctSum.toFixed(1)}%</div>}
         </div>
         <div className="space-y-2">
-          {draft.rows.map((r, i) => (
+          {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center">
-              <input className="input uppercase" placeholder="Ticker or US10Y" value={r.ticker} onChange={(e) => setRow(i, { ticker: e.target.value.toUpperCase() })} spellCheck={false} />
-              <input className="input" type="number" min="0" step="any" placeholder={draft.mode === 'percent' ? 'Percent' : draft.mode === 'dollars' ? 'Dollars' : 'Shares'} value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} />
-              <div className="text-xs text-muted w-16 text-right">{progress[r.ticker.toUpperCase()] || ''}</div>
-              <button type="button" className="btn px-2" aria-label="Remove holding" disabled={draft.rows.length <= 1} onClick={() => setDraft({ ...draft, rows: draft.rows.filter((_, k) => k !== i) })}>×</button>
+              <input className="input uppercase" placeholder="Ticker or US10Y" value={r.ticker} onChange={(e) => setRow(i, { ticker: e.target.value.toUpperCase() })} spellCheck={false} aria-label={`Holding ${i + 1} ticker`} />
+              <input className="input" type="number" min="0" step="any" placeholder={portfolio.mode === 'percent' ? 'Percent' : portfolio.mode === 'dollars' ? 'Dollars' : 'Shares'} value={r.amount} onChange={(e) => setRow(i, { amount: e.target.value })} aria-label={`Holding ${i + 1} amount`} />
+              <div className="text-xs text-muted w-16 text-right">{running ? progress[r.ticker.toUpperCase()] || '' : ''}</div>
+              <button type="button" className="btn btn-sm px-2" aria-label="Remove holding" disabled={rows.length <= 1} onClick={() => setRows(rows.filter((_, k) => k !== i))}>×</button>
             </div>
           ))}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <button type="button" className="btn" onClick={() => setDraft({ ...draft, rows: [...draft.rows, { ticker: '', amount: '' }] })}>+ Add holding</button>
+          <button type="button" className="btn" onClick={() => setRows([...rows, { ticker: '', amount: '' }])}>+ Add holding</button>
           <button type="submit" className="btn btn-primary" disabled={running}>{running ? 'Grading…' : 'Grade portfolio'}</button>
           <span className="text-xs text-muted">About 10 seconds per holding.</span>
         </div>
-        {error && <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm text-[#e66767]">{error}</div>}
+        {error && <ErrorState title="Could not grade" text={error} />}
       </form>
 
-      {g && (
-        <>
-          <section className="card p-5 md:p-6" id="grade-score">
-            <div className="flex flex-col md:flex-row md:items-center gap-5">
-              <div className="flex items-baseline gap-4">
-                <div className="num text-6xl md:text-7xl font-bold leading-none" style={{ color: labelColor(g.label) }}>{g.score ?? '—'}</div>
-                <div><div className="text-lg font-semibold" style={{ color: labelColor(g.label) }}>{g.score === null ? 'No score' : `${g.label} conviction`}</div><div className="text-xs text-muted">Portfolio Conviction Score · 0–39 Low · 40–59 Neutral · 60–79 High · 80–100 Very High</div></div>
-              </div>
-              <div className="md:ml-auto flex gap-2">
-                <button className="btn" onClick={() => onOptimize(result.holdings.map((h) => h.ticker))}>Optimize this portfolio →</button>
-              </div>
-            </div>
+      {running && <div className="space-y-5" aria-busy="true"><SkeletonCard lines={2} /><SkeletonCard lines={4} /><SkeletonCard chart /></div>}
+      {!running && !g && !error && <EmptyState title="No grade yet" text="Add holdings above and press Grade portfolio. You get a 0–100 Portfolio Conviction Score built from holding quality, diversification and risk." />}
+
+      {g && !running && (
+        <div className="space-y-5" ref={ref} id="grade-results">
+          <ScoreHeader score={g.score} label={g.label} title={portfolio.name || 'Portfolio'} subtitle={`${result.holdings.length} holdings · ${Object.entries(g.classWeights).map(([k, w]) => `${CLASS_LABELS[k] || k} ${(w * 100).toFixed(0)}%`).join(', ')}`} meta={g.riskMetrics.window ? `History ${g.riskMetrics.window.from} to ${g.riskMetrics.window.to}` : null} id="grade-score"
+            scoreInfo={{ title: 'Portfolio Conviction Score', subtitle: 'Holding quality 40%, Diversification 30%, Risk 30% (re-normalized over available pillars)', steps: [{ label: 'Blend', ...g.blendStep }] }}
+            actions={<>
+              <ExportPdfButton targetRef={ref} filename={pdfName(`Conviction_Portfolio_${(portfolio.name || 'grade').replace(/[^a-z0-9]+/gi, '_')}`, settings.mode)} />
+              <SavePortfolioButton defaultName={portfolio.name || result.holdings.map((h) => h.ticker).join(' / ')} isUpdate={Boolean(portfolio.activeId)} onSave={(name) => onSave(name, holdingRows, portfolio.mode)} />
+              <button className="btn" onClick={() => onGoTab('optimize')}>Optimize this portfolio →</button>
+              <button className="btn" onClick={() => onGoTab('stress')}>Stress test →</button>
+            </>}
+          >
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {g.pillars.map((p) => (
                 <div key={p.id} className="rounded-lg bg-surface-2 p-3">
-                  <div className="flex items-center justify-between text-xs"><span className="text-ink-2">{p.label}</span><span className="text-muted">{p.score === null ? 'excluded' : `${(p.normWeight * 100).toFixed(0)}% weight`}</span></div>
-                  <div className="num text-2xl font-bold mt-1" style={{ color: PILLAR_COLORS[p.id] }}>{p.score === null ? 'Unavailable' : p.score.toFixed(0)}</div>
-                  <div className="h-2 rounded-full bg-page mt-2 overflow-hidden"><div className="h-full" style={{ width: `${p.score ?? 0}%`, background: PILLAR_COLORS[p.id] }} /></div>
+                  <div className="flex items-center justify-between text-xs"><span className="text-ink-2 inline-flex items-center">{p.label}<InfoButton content={{ title: p.label, subtitle: `Pillar weight ${p.weight}%`, steps: g.steps[p.id] && g.steps[p.id].length ? g.steps[p.id] : [{ label: p.label, formula: 'see notes', calc: g.notes.join('; '), result: 'Unavailable' }] }} /></span><span className="text-muted">{p.score === null ? 'excluded' : `${(p.normWeight * 100).toFixed(0)}% weight`}</span></div>
+                  <div className="num text-2xl font-bold mt-1" style={{ color: PILLAR_COLORS[p.id] }}>{p.score === null ? <Unavailable reason={g.notes.find((n) => n.toLowerCase().includes(p.id)) || 'Excluded'} /> : p.score.toFixed(0)}</div>
+                  <div className="h-1.5 rounded-full bg-page mt-2 overflow-hidden"><div className="h-full" style={{ width: `${p.score ?? 0}%`, background: PILLAR_COLORS[p.id] }} /></div>
                 </div>
               ))}
             </div>
-            {g.notes.length > 0 && <ul className="mt-3 text-xs text-[#fab219] space-y-1">{g.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+            {g.notes.length > 0 && <ul className="mt-3 text-xs text-ink-2 space-y-1">{g.notes.map((n, i) => <li key={i}>• {n}</li>)}</ul>}
+          </ScoreHeader>
+
+          <DriversCard drivers={g.drivers} note="Pillar weight × component weight × (score − 50); holdings by their weight within Holding quality." />
+
+          <ReasoningSection mode={settings.mode} summary={summary} ai={{ state: reasoning, onGenerate: generate, canGenerate: g.score !== null }}
+            wharton={<Methodology intro="Weights and formulas used for this grade. Fixed templates; nothing is generated." sections={[
+              { title: 'Portfolio Conviction Score', subtitle: g.blendStep.result, note: 'Pillar weights: Holding quality 40, Diversification 30, Risk 30 (re-normalized over available pillars).', steps: [{ label: 'Blend', ...g.blendStep }] },
+              { title: PILLAR_LABELS.quality, subtitle: g.pillars[0].score === null ? 'unavailable' : g.pillars[0].score.toFixed(1), steps: g.steps.quality },
+              { title: PILLAR_LABELS.diversification, subtitle: g.pillars[1].score === null ? 'unavailable' : g.pillars[1].score.toFixed(1), steps: g.steps.diversification },
+              { title: PILLAR_LABELS.risk, subtitle: g.pillars[2].score === null ? 'unavailable' : g.pillars[2].score.toFixed(1), steps: g.steps.risk.length ? g.steps.risk : [{ label: 'Risk pillar', formula: 'portfolio return series', calc: g.notes.find((n) => /Risk pillar/.test(n)) || '', result: 'Unavailable' }] },
+              { title: 'Per-holding scores', note: 'Each holding is scored by its own models (stock: six models; ETF and Treasury: the components shown on its page). Open a holding for its full methodology.', steps: result.holdings.map((h) => ({ label: h.ticker, formula: `${ASSET_TYPE_LABELS[h.assetType] || h.assetType} score`, calc: `weight ${fmtPct(h.weight, 1)}`, result: h.score === null ? `Unavailable: ${h.error || 'no score'}` : `${h.score}` })) },
+            ]} />}
+          />
+
+          <section className="space-y-4" id="details">
+            <Tabs items={DETAIL_TABS} value={tab} onChange={setTab} ariaLabel="Details" />
+            {tab === 'holdings' && (
+              <section className="card p-4 md:p-5 overflow-x-auto" id="grade-holdings">
+                <table className="data-table">
+                  <thead><tr><th>Ticker</th><th>Type</th><th className="r">Input</th><th className="r">Weight</th><th className="r">Score</th><th>Note</th></tr></thead>
+                  <tbody>
+                    {result.holdings.map((h) => (
+                      <tr key={h.ticker}>
+                        <td><button className="text-accent hover:underline font-semibold" onClick={() => onOpenStock(h.ticker)}>{h.ticker}</button>{h.name && <div className="text-muted truncate max-w-[200px]">{h.name}</div>}</td>
+                        <td className="text-ink-2">{ASSET_TYPE_LABELS[h.assetType] || h.assetType}</td>
+                        <td className="r num text-muted">{h.input}{MODE_UNIT[portfolio.mode] || ''}</td>
+                        <td className="r num">{fmtPct(h.weight, 1)}</td>
+                        <td className="r">{h.score === null ? <Unavailable reason={h.error || 'No score'} /> : <span className={`pill num ${scoreClass(h.score)}`}>{h.score}</span>}</td>
+                        <td className="text-muted">{h.error || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
+            {tab === 'diversification' && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <section className="card p-4 md:p-5"><ChartBlock title="Allocation by asset class" explanation={{ what: 'How the portfolio splits across stocks, equity ETFs, bond ETFs and Treasuries.', reading: Object.entries(g.classWeights).map(([k, w]) => `${CLASS_LABELS[k] || k} ${(w * 100).toFixed(0)}%`).join(', ') + '.', caveat: 'An equity ETF counts as one class even though it holds many stocks; the correlation table shows whether holdings actually move differently.' }}><AllocationPie classWeights={g.classWeights} labels={CLASS_LABELS} /></ChartBlock></section>
+                <section className="card p-4 md:p-5"><ChartBlock title="How much holdings move together (correlation)" explanation={{ what: 'Whether each pair of holdings tends to move together day to day.', reading: g.avgCorr === null ? 'Correlation could not be computed (see notes).' : `Average pairwise correlation ${g.avgCorr.toFixed(2)}.`, caveat: 'Correlations tend to rise in sell-offs, so diversification is usually weakest when it matters most.' }}>{g.corr ? <CorrelationHeatmap corr={g.corr.matrix} tickers={g.corr.tickers} /> : <Unavailable reason={g.notes.find((n) => /Correlation/.test(n)) || 'not enough holdings with return history'} />}</ChartBlock></section>
+                <section className="card p-4 md:p-5 lg:col-span-2">
+                  <h3 className="font-semibold mb-2">Diversification components</h3>
+                  <table className="data-table"><thead><tr><th>Component</th><th>Value</th><th className="r">Score</th></tr></thead><tbody>{g.components.diversification.map((c) => <tr key={c.id}><td><MetricLabel label={c.label} /></td><td className="num text-ink-2">{c.text}</td><td className="r num">{c.score.toFixed(1)}</td></tr>)}</tbody></table>
+                </section>
+              </div>
+            )}
+            {tab === 'risk' && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <section className="card p-4 md:p-5"><ChartBlock title="Cumulative return vs SPY and 60/40" explanation={{ what: "Growth of the portfolio at today's weights (rebalanced daily) against SPY alone and a 60/40 SPY/AGG mix, over the common history of all holdings.", reading: g.riskMetrics.window ? `${g.riskMetrics.window.days} trading days from ${g.riskMetrics.window.from}: portfolio ${fmtPct(g.riskMetrics.cumReturn, 1)}, SPY ${fmtPct(g.riskMetrics.spyCumReturn, 1)}${g.riskMetrics.sixtyFortyCumReturn !== null ? `, 60/40 ${fmtPct(g.riskMetrics.sixtyFortyCumReturn, 1)}` : ''}.` : 'Unavailable.', caveat: 'Treasury holdings use returns approximated from yield changes; ETFs and stocks use split-adjusted prices without dividends.' }}>{g.charts.cumulative.length ? <CumulativeChart data={g.charts.cumulative} /> : <Unavailable reason={g.notes.find((n) => /Risk pillar/.test(n)) || 'no return history'} />}</ChartBlock></section>
+                <section className="card p-4 md:p-5"><ChartBlock title="Worst drop from peak (drawdown)" explanation={{ what: 'How far the portfolio sat below its previous high at each point.', reading: g.riskMetrics.mdd !== undefined ? `Worst drawdown ${fmtPct(g.riskMetrics.mdd, 1)}, bottoming on ${g.riskMetrics.trough}.` : 'Unavailable.', caveat: 'Constant weights are assumed, which quietly rebalances every day.' }}>{g.charts.drawdown.length ? <DrawdownChart drawdown={g.charts.drawdown} /> : <Unavailable reason="no return history" />}</ChartBlock></section>
+                <section className="card p-4 md:p-5 lg:col-span-2">
+                  <h3 className="font-semibold mb-2">Risk components</h3>
+                  {g.components.risk.length ? <table className="data-table"><thead><tr><th>Component</th><th>Value</th><th className="r">Score</th></tr></thead><tbody>{g.components.risk.map((c) => <tr key={c.id}><td><MetricLabel label={c.label} /></td><td className="num text-ink-2">{c.text}</td><td className="r num">{c.score.toFixed(1)}</td></tr>)}</tbody></table> : <Unavailable reason={g.notes.find((n) => /Risk pillar/.test(n)) || 'no return history'} />}
+                </section>
+              </div>
+            )}
+            {tab === 'thesis' && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted">Optional: add a time horizon, a growth target and your thesis. Uses the holdings and weights from this grade. Each stock runs the full six-model analysis.</p>
+                <PortfolioPage settings={settings} onOpenStock={onOpenStock} embedded holdingsOverride={thesisOverride} />
+              </div>
+            )}
           </section>
-
-          <section className="card p-5 md:p-6" id="grade-conclusion">
-            <h2 className="font-semibold mb-2">What this means</h2>
-            <div className="space-y-2 text-sm text-ink-2 leading-relaxed">{summary.map((p, i) => <p key={i} className={i === 0 ? 'text-ink' : ''}>{p}</p>)}</div>
-          </section>
-
-          <section className="card p-4 md:p-5 overflow-x-auto" id="grade-holdings">
-            <h3 className="font-semibold mb-3">Holdings</h3>
-            <table className="w-full text-xs">
-              <thead><tr className="text-muted"><th className="p-1 text-left font-medium">Ticker</th><th className="p-1 text-left font-medium">Type</th><th className="p-1 text-right font-medium">Input</th><th className="p-1 text-right font-medium">Weight</th><th className="p-1 text-right font-medium">Score</th><th className="p-1 text-left font-medium">Note</th></tr></thead>
-              <tbody>
-                {result.holdings.map((h) => (
-                  <tr key={h.ticker} className="border-t border-line">
-                    <td className="p-1"><button className="text-s1 hover:underline font-semibold" onClick={() => onOpenStock(h.ticker)}>{h.ticker}</button>{h.name && <div className="text-muted truncate max-w-[180px]">{h.name}</div>}</td>
-                    <td className="p-1 text-ink-2">{ASSET_TYPE_LABELS[h.assetType] || h.assetType}</td>
-                    <td className="p-1 text-right num text-muted">{h.input}</td>
-                    <td className="p-1 text-right num">{fmtPct(h.weight, 1)}</td>
-                    <td className="p-1 text-right"><span className={`pill num ${scoreClass(h.score)}`}>{h.score ?? 'Unavailable'}</span></td>
-                    <td className="p-1 text-[#fab219]">{h.error || ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="card p-4 md:p-5" id="grade-drivers">
-            <h3 className="font-semibold mb-1">What drove the score</h3>
-            <p className="text-xs text-muted mb-3">Points above or below a neutral 50, by component: pillar weight × component weight × (score − 50). Holdings are shown by their weight within Holding quality.</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              {[['Biggest positive contributors', g.drivers.filter((d) => d.points > 0).slice(0, 6), '#3ecf3e'], ['Biggest negative contributors', g.drivers.filter((d) => d.points < 0).slice(-6).reverse(), '#e66767']].map(([title, list, color]) => (
-                <div key={title}>
-                  <div className="text-xs uppercase tracking-wide text-muted mb-2">{title}</div>
-                  {list.length === 0 ? <div className="text-sm text-muted">None</div> : list.map((d, i) => (
-                    <div key={i} className="flex items-baseline gap-2 text-sm py-1 border-t border-line"><span className="num w-14 text-right" style={{ color }}>{signed(d.points)}</span><span className="text-ink">{d.label}</span><span className="text-muted text-xs">{d.detail}</span></div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section className="card p-4 md:p-5"><ChartBlock title="Allocation by asset class" explanation={{ what: 'How the portfolio splits across stocks, equity ETFs, bond ETFs and Treasuries.', reading: Object.entries(g.classWeights).map(([k, w]) => `${CLASS_LABELS[k] || k} ${(w * 100).toFixed(0)}%`).join(', ') + '.', caveat: 'An equity ETF counts as one class even though it holds many stocks; the correlation table below shows whether holdings actually move differently.' }}><AllocationPie classWeights={g.classWeights} labels={CLASS_LABELS} /></ChartBlock></section>
-            <section className="card p-4 md:p-5"><ChartBlock title="Correlation between holdings" explanation={{ what: 'Whether each pair of holdings tends to move together day to day.', reading: g.avgCorr === null ? 'Correlation could not be computed (see notes).' : `Average pairwise correlation ${g.avgCorr.toFixed(2)}.`, caveat: 'Correlations tend to rise in sell-offs, so diversification is usually weakest when it matters most.' }}>{g.corr ? <CorrelationHeatmap corr={g.corr.matrix} tickers={g.corr.tickers} /> : <div className="text-sm text-muted">Unavailable: {g.notes.find((n) => /Correlation/.test(n)) || 'not enough holdings with return history'}</div>}</ChartBlock></section>
-          </div>
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section className="card p-4 md:p-5"><ChartBlock title="Cumulative return vs SPY and 60/40" explanation={{ what: 'Growth of the portfolio at today\'s weights (rebalanced daily) against SPY alone and a 60/40 SPY/AGG mix, over the common history of all holdings.', reading: g.riskMetrics.window ? `${g.riskMetrics.window.days} trading days from ${g.riskMetrics.window.from}: portfolio ${fmtPct(g.riskMetrics.cumReturn, 1)}, SPY ${fmtPct(g.riskMetrics.spyCumReturn, 1)}${g.riskMetrics.sixtyFortyCumReturn !== null ? `, 60/40 ${fmtPct(g.riskMetrics.sixtyFortyCumReturn, 1)}` : ''}.` : 'Unavailable.', caveat: 'Treasury holdings use returns approximated from yield changes; ETFs and stocks use split-adjusted prices without dividends.' }}>{g.charts.cumulative.length ? <CumulativeChart data={g.charts.cumulative} /> : <div className="text-sm text-muted">Unavailable: {g.notes.find((n) => /Risk pillar/.test(n)) || 'no return history'}</div>}</ChartBlock></section>
-            <section className="card p-4 md:p-5"><ChartBlock title="Portfolio drawdown" explanation={{ what: 'How far the portfolio sat below its previous high at each point.', reading: g.riskMetrics.mdd !== undefined ? `Worst drawdown ${fmtPct(g.riskMetrics.mdd, 1)}, bottoming on ${g.riskMetrics.trough}.` : 'Unavailable.', caveat: 'Constant weights are assumed, which quietly rebalances every day.' }}>{g.charts.drawdown.length ? <DrawdownChart drawdown={g.charts.drawdown} /> : <div className="text-sm text-muted">Unavailable</div>}</ChartBlock></section>
-          </div>
-
-          {settings.mode === 'standard'
-            ? <StandardReasoning state={reasoning} onGenerate={generate} canGenerate={g.score !== null} fallback={summary} />
-            : <Methodology intro="Weights and formulas used for this grade. Fixed templates; nothing is generated." sections={[
-                { title: 'Portfolio Conviction Score', subtitle: g.blendStep.result, note: 'Pillar weights: Holding quality 40, Diversification 30, Risk 30 (re-normalized over available pillars).', steps: [{ label: 'Blend', ...g.blendStep }] },
-                { title: PILLAR_LABELS.quality, subtitle: g.pillars[0].score === null ? 'unavailable' : g.pillars[0].score.toFixed(1), steps: g.steps.quality },
-                { title: PILLAR_LABELS.diversification, subtitle: g.pillars[1].score === null ? 'unavailable' : g.pillars[1].score.toFixed(1), steps: g.steps.diversification },
-                { title: PILLAR_LABELS.risk, subtitle: g.pillars[2].score === null ? 'unavailable' : g.pillars[2].score.toFixed(1), steps: g.steps.risk.length ? g.steps.risk : [{ label: 'Risk pillar', formula: 'portfolio return series', calc: g.notes.find((n) => /Risk pillar/.test(n)) || '', result: 'Unavailable' }] },
-                { title: 'Per-holding scores', note: 'Each holding is scored by its own models (stock: six models; ETF and Treasury: the components shown on its page). Open a holding for its full methodology.', steps: result.holdings.map((h) => ({ label: h.ticker, formula: `${ASSET_TYPE_LABELS[h.assetType] || h.assetType} score`, calc: `weight ${fmtPct(h.weight, 1)}`, result: h.score === null ? `Unavailable: ${h.error || 'no score'}` : `${h.score}` })) },
-              ]} />}
-        </>
+        </div>
       )}
     </div>
   );

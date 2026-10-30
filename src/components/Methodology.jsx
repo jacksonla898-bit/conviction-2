@@ -40,7 +40,7 @@ export default function Methodology({ title = 'Methodology', intro, sections }) 
           <div key={i}>
             <div className="flex items-baseline justify-between gap-3"><h3 className="text-sm font-semibold">{s.title}</h3>{s.subtitle && <span className="num text-sm text-ink-2">{s.subtitle}</span>}</div>
             {s.note && <p className="text-xs text-muted mt-1">{s.note}</p>}
-            {s.unavailable ? <p className="text-sm text-[#e66767] mt-1">{s.unavailable}</p> : <div className="mt-2"><StepsTable steps={s.steps} /></div>}
+            {s.unavailable ? <p className="text-sm text-bad mt-1">{s.unavailable}</p> : <div className="mt-2"><StepsTable steps={s.steps} /></div>}
           </div>
         ))}
       </div>

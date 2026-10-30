@@ -9,35 +9,9 @@ import { SOURCE_LABELS } from '../lib/pipeline.js';
 import { chartExplanations } from '../lib/plainEnglish.js';
 import ChartBlock from './ChartBlock.jsx';
 import DcfScenarios, { DcfUnavailableViews } from './DcfScenarios.jsx';
-import Prov from './Prov.jsx';
-
-function scoreColor(s) {
-  if (s === null || s === undefined) return 'bg-surface-2 text-muted';
-  if (s < 40) return 'bg-[#d03b3b22] text-[#e66767]';
-  if (s < 60) return 'bg-[#c9850022] text-[#fab219]';
-  return 'bg-[#0ca30c22] text-[#3ecf3e]';
-}
-
-/** One metric tile. A value whose provenance is "unavailable" shows the word Unavailable and the reason. */
-function Metric({ label, value, prov }) {
-  const unavailable = (prov && prov.status === 'unavailable') || value === null || value === undefined;
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center text-[11px] uppercase tracking-wide text-muted">
-        <span className="truncate" title={label}>{label}</span>
-        <Prov p={prov} />
-      </div>
-      {unavailable ? (
-        <>
-          <div className="text-sm font-semibold text-[#fab219]">Unavailable</div>
-          <div className="text-[10px] leading-snug text-muted">{(prov && prov.reason) || 'This value could not be computed from the available data.'}</div>
-        </>
-      ) : (
-        <div className="num text-sm text-ink truncate" title={typeof value === 'string' ? value : undefined}>{value}</div>
-      )}
-    </div>
-  );
-}
+import { MetricTile, UnavailableBlock, SkeletonCard } from './ui.jsx';
+import { scoreClass } from '../lib/labels.js';
+import { provLines } from '../lib/provenance.js';
 
 /** [label, formatted value, provenance key] for each tile. */
 function metricsFor(r) {
@@ -164,34 +138,32 @@ export default function ModelCard({ id, status, result, loadingSources, ticker }
           <h3 className="font-semibold text-ink">{title}</h3>
           {result?.available && <p className="text-xs text-muted mt-0.5">{result.scoringRule}</p>}
         </div>
-        <div className={`pill num text-base px-3 py-1 ${scoreColor(result?.available ? result.subscore : null)}`}>
+        <div className={`pill num text-base px-3 py-1 ${scoreClass(result?.available ? result.subscore : null)}`}>
           {result?.available ? result.subscore : status === 'loading' ? '…' : '—'}
         </div>
       </header>
 
       {status === 'loading' && (
-        <div className="flex items-center gap-3 text-sm text-ink-2">
-          <span className="inline-block w-4 h-4 border-2 border-s1 border-t-transparent rounded-full animate-spin" />
-          Loading {loadingSources.map((s) => SOURCE_LABELS[s]).join(' and ')}…
+        <div className="space-y-3" aria-busy="true">
+          <div className="text-xs text-muted">Loading {loadingSources.map((s) => SOURCE_LABELS[s]).join(' and ')}…</div>
+          <div className="skeleton w-full" style={{ height: 200 }} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 34 }} />)}</div>
         </div>
       )}
 
       {status === 'done' && result && !result.available && (
         <>
-          <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm">
-            <div className="font-semibold text-[#e66767]">Unavailable — excluded from the conviction score</div>
-            <div className="text-ink-2 mt-1 break-words">{result.error}</div>
-          </div>
+          <UnavailableBlock title="Unavailable — excluded from the conviction score" reason={result.error} />
           {id === 'dcf' && <DcfUnavailableViews reason={result.error} />}
         </>
       )}
 
       {status === 'done' && result?.available && (
         <>
-          {result.warning && <div className="rounded-lg border border-[#fab21955] bg-[#fab21914] p-2 text-xs text-[#fab219]">{result.warning}</div>}
+          {result.warning && <div className="rounded-lg border border-warn/40 bg-warn/10 p-2 text-xs text-ink-2">{result.warning}</div>}
           <Charts r={result} ticker={ticker} />
           <div className={`grid grid-cols-2 gap-x-4 gap-y-3 pt-2 border-t border-line ${id === 'dcf' ? 'md:grid-cols-6' : 'md:grid-cols-3'}`}>
-            {metricsFor(result).map(([label, value, key]) => <Metric key={label} label={label} value={value} prov={result.provenance ? result.provenance[key] : null} />)}
+            {metricsFor(result).map(([label, value, key]) => { const prov = result.provenance ? result.provenance[key] : null; return <MetricTile key={label} label={label} value={value} prov={prov} drawer={{ title: label, subtitle: `${title} · ${result.keyOutput || ''}`, prov: provLines(prov), steps: result.steps, inputs: result.inputs, scoringRule: result.scoringRule, note: result.note }} />; })}
           </div>
           <div>
             <button className="text-xs text-s1 hover:underline" onClick={() => setShowInputs((v) => !v)}>

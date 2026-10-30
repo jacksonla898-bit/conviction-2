@@ -6,13 +6,31 @@ import {
 } from 'recharts';
 import { fmt, fmtPct, fmtMoney, fmtShares } from '../models/_math.js';
 
+const cssVar = (name, fallback) => {
+  if (typeof window === 'undefined' || !document.documentElement) return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+};
+/** Chart colours read from the active theme at render time (light and dark). */
 export const C = {
-  blue: '#3987e5', orange: '#d95926', aqua: '#199e70', yellow: '#c98500', magenta: '#d55181', violet: '#9085e9',
-  good: '#0ca30c', bad: '#e66767', grid: '#2c2c2a', axis: '#383835', muted: '#898781', ink2: '#c3c2b7',
+  get blue() { return cssVar('--chart-1', '#2563eb'); },
+  get aqua() { return cssVar('--chart-2', '#0d9488'); },
+  get violet() { return cssVar('--chart-3', '#7c3aed'); },
+  get magenta() { return cssVar('--chart-4', '#db2777'); },
+  get orange() { return cssVar('--chart-5', '#ea8a3c'); },
+  get yellow() { return cssVar('--chart-6', '#64748b'); },
+  get good() { return cssVar('--score-good', '#16a34a'); },
+  get bad() { return cssVar('--score-bad', '#dc2626'); },
+  get grid() { return cssVar('--chart-grid', '#e4e4e7'); },
+  get axis() { return cssVar('--chart-axis', '#d4d4d8'); },
+  get muted() { return cssVar('--muted', '#71717a'); },
+  get ink2() { return cssVar('--ink-2', '#3f3f46'); },
+  get ink() { return cssVar('--ink', '#111113'); },
+  get surface() { return cssVar('--surface', '#ffffff'); },
 };
 
-const axisProps = { stroke: C.axis, tick: { fill: C.muted, fontSize: 11, fontFamily: 'ui-monospace, monospace' }, tickLine: false, axisLine: { stroke: C.axis } };
-const gridProps = { stroke: C.grid, strokeDasharray: '0', vertical: false };
+const axisPropsFn = () => ({ stroke: C.axis, tick: { fill: C.muted, fontSize: 11 }, tickLine: false, axisLine: { stroke: C.axis } });
+const gridPropsFn = () => ({ stroke: C.grid, strokeDasharray: '0', vertical: false });
 const H = 230;
 
 function Tip({ active, payload, label, fmtLabel, fmtValue }) {
@@ -40,9 +58,9 @@ export function FanChart({ fan, S0 }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="day" {...axisProps} tickFormatter={(d) => `${d}d`} minTickGap={40} />
-        <YAxis {...axisProps} tickFormatter={money} width={62} domain={['auto', 'auto']} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="day" {...axisPropsFn()} tickFormatter={(d) => `${d}d`} minTickGap={40} />
+        <YAxis {...axisPropsFn()} tickFormatter={money} width={62} domain={['auto', 'auto']} />
         <Tooltip content={<Tip fmtLabel={(l) => `Day ${l}`} fmtValue={(v) => (Array.isArray(v) ? `${money(v[0])} – ${money(v[1])}` : money(v))} />} />
         <Area type="monotone" dataKey="band95" name="5th–95th pct" stroke="none" fill={C.blue} fillOpacity={0.15} isAnimationActive={false} />
         <Area type="monotone" dataKey="band50" name="25th–75th pct" stroke="none" fill={C.blue} fillOpacity={0.3} isAnimationActive={false} />
@@ -57,10 +75,10 @@ export function EndingHistogram({ histogram, S0 }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={histogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={1}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="price" {...axisProps} tickFormatter={money} minTickGap={30} />
-        <YAxis {...axisProps} width={48} />
-        <Tooltip content={<Tip fmtLabel={(l, p) => `${money(p[0].payload.from)} – ${money(p[0].payload.to)}`} fmtValue={(v) => `${v} paths`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="price" {...axisPropsFn()} tickFormatter={money} minTickGap={30} />
+        <YAxis {...axisPropsFn()} width={48} />
+        <Tooltip content={<Tip fmtLabel={(l, p) => `${money(p[0].payload.from)} – ${money(p[0].payload.to)}`} fmtValue={(v) => `${v} paths`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="count" name="Paths" isAnimationActive={false} radius={[3, 3, 0, 0]}>
           {histogram.map((b, i) => <Cell key={i} fill={b.price >= S0 ? C.aqua : C.orange} />)}
         </Bar>
@@ -74,10 +92,10 @@ export function FcfProjectionChart({ projection }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={projection} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="year" {...axisProps} tickFormatter={(y) => y.replace(' (actual)', '')} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtMoney(v, 0)} width={62} />
-        <Tooltip content={<Tip fmtValue={(v) => fmtMoney(v)} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="year" {...axisPropsFn()} tickFormatter={(y) => y.replace(' (actual)', '')} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtMoney(v, 0)} width={62} />
+        <Tooltip content={<Tip fmtValue={(v) => fmtMoney(v)} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="fcf" name="Free cash flow" isAnimationActive={false} radius={[4, 4, 0, 0]}>
           {projection.map((p, i) => <Cell key={i} fill={p.projected ? C.blue : C.ink2} fillOpacity={p.projected ? 0.9 : 1} />)}
         </Bar>
@@ -125,9 +143,9 @@ export function DrawdownChart({ drawdown }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <AreaChart data={drawdown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtPct(v, 0)} width={52} domain={['auto', 0]} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtPct(v, 0)} width={52} domain={['auto', 0]} />
         <Tooltip content={<Tip fmtValue={(v) => fmtPct(v)} />} />
         <Area type="monotone" dataKey="drawdown" name="Drawdown" stroke={C.bad} strokeWidth={1.5} fill={C.bad} fillOpacity={0.25} dot={false} isAnimationActive={false} />
       </AreaChart>
@@ -139,9 +157,9 @@ export function RollingBetaChart({ rollingBeta }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <LineChart data={rollingBeta} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} width={44} domain={['auto', 'auto']} tickFormatter={(v) => fmt(v, 1)} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} width={44} domain={['auto', 'auto']} tickFormatter={(v) => fmt(v, 1)} />
         <Tooltip content={<Tip fmtValue={(v) => fmt(v)} />} />
         <ReferenceLine y={1} stroke={C.ink2} strokeDasharray="4 4" label={{ value: 'β = 1', fill: C.muted, fontSize: 10, position: 'insideTopLeft' }} />
         <Line type="monotone" dataKey="beta" name="60-day beta" stroke={C.violet} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
@@ -155,9 +173,9 @@ export function PriceSmaChart({ series }) {
   return (
     <ResponsiveContainer width="100%" height={H + 30}>
       <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} tickFormatter={money} width={62} domain={['auto', 'auto']} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} tickFormatter={money} width={62} domain={['auto', 'auto']} />
         <Tooltip content={<Tip fmtValue={(v) => `$${fmt(v)}`} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: C.ink2 }} iconType="plainline" />
         <Line type="monotone" dataKey="close" name="Close" stroke={C.blue} strokeWidth={1.5} dot={false} isAnimationActive={false} />
@@ -173,9 +191,9 @@ export function MarginsChart({ rows }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="year" {...axisProps} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtPct(v, 0)} width={52} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="year" {...axisPropsFn()} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtPct(v, 0)} width={52} />
         <Tooltip content={<Tip fmtLabel={(l) => `FY${l}`} fmtValue={(v) => fmtPct(v)} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: C.ink2 }} iconType="plainline" />
         <Line type="monotone" dataKey="grossMargin" name="Gross margin" stroke={C.blue} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
@@ -190,10 +208,10 @@ export function RevenueFcfChart({ rows }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="year" {...axisProps} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtMoney(v, 0)} width={62} />
-        <Tooltip content={<Tip fmtLabel={(l) => `FY${l}`} fmtValue={(v) => fmtMoney(v)} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="year" {...axisPropsFn()} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtMoney(v, 0)} width={62} />
+        <Tooltip content={<Tip fmtLabel={(l) => `FY${l}`} fmtValue={(v) => fmtMoney(v)} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Legend wrapperStyle={{ fontSize: 11, color: C.ink2 }} />
         <Bar dataKey="revenue" name="Revenue" fill={C.blue} isAnimationActive={false} radius={[4, 4, 0, 0]} />
         <Bar dataKey="fcf" name="Free cash flow" fill={C.yellow} isAnimationActive={false} radius={[4, 4, 0, 0]} />
@@ -208,10 +226,10 @@ export function SurpriseChart({ surpriseBars }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={surpriseBars} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="period" {...axisProps} tickFormatter={shortDate} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtPct(v, 0)} width={52} />
-        <Tooltip content={<Tip fmtValue={(v, n, p) => `${fmtPct(v)} (actual ${fmt(p.actual)} vs est ${fmt(p.estimate)})`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="period" {...axisPropsFn()} tickFormatter={shortDate} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtPct(v, 0)} width={52} />
+        <Tooltip content={<Tip fmtValue={(v, n, p) => `${fmtPct(v)} (actual ${fmt(p.actual)} vs est ${fmt(p.estimate)})`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <ReferenceLine y={0} stroke={C.axis} />
         <Bar dataKey="surprisePct" name="EPS surprise" isAnimationActive={false} radius={[4, 4, 0, 0]}>
           {surpriseBars.map((b, i) => <Cell key={i} fill={b.surprisePct >= 0 ? C.aqua : C.orange} />)}
@@ -226,10 +244,10 @@ export function InsiderFlowChart({ monthly }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="month" {...axisProps} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtShares(v)} width={56} />
-        <Tooltip content={<Tip fmtValue={(v, n, p) => `${v >= 0 ? '+' : ''}${fmtShares(v)} (bought ${fmtShares(p.bought)}, sold ${fmtShares(p.sold)})`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="month" {...axisPropsFn()} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtShares(v)} width={56} />
+        <Tooltip content={<Tip fmtValue={(v, n, p) => `${v >= 0 ? '+' : ''}${fmtShares(v)} (bought ${fmtShares(p.bought)}, sold ${fmtShares(p.sold)})`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <ReferenceLine y={0} stroke={C.axis} />
         <Bar dataKey="net" name="Net insider shares (P − S)" isAnimationActive={false} radius={[4, 4, 0, 0]}>
           {monthly.map((m, i) => <Cell key={i} fill={m.net >= 0 ? C.aqua : C.orange} />)}
@@ -249,9 +267,9 @@ export function PortfolioFanChart({ fan, target }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="day" {...axisProps} tickFormatter={(d) => `${d}d`} minTickGap={40} />
-        <YAxis {...axisProps} tickFormatter={(v) => fmtPct(v, 0)} width={52} domain={['auto', 'auto']} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="day" {...axisPropsFn()} tickFormatter={(d) => `${d}d`} minTickGap={40} />
+        <YAxis {...axisPropsFn()} tickFormatter={(v) => fmtPct(v, 0)} width={52} domain={['auto', 'auto']} />
         <Tooltip content={<Tip fmtLabel={(l) => `Day ${l}`} fmtValue={(v) => (Array.isArray(v) ? `${fmtPct(v[0], 1)} – ${fmtPct(v[1], 1)}` : fmtPct(v, 1))} />} />
         <Area type="monotone" dataKey="band95" name="5th–95th pct" stroke="none" fill={C.violet} fillOpacity={0.15} isAnimationActive={false} />
         <Area type="monotone" dataKey="band50" name="25th–75th pct" stroke="none" fill={C.violet} fillOpacity={0.3} isAnimationActive={false} />
@@ -267,10 +285,10 @@ export function PortfolioHistogram({ histogram, target }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={histogram} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={1}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="ret" {...axisProps} tickFormatter={(v) => fmtPct(v, 0)} minTickGap={30} />
-        <YAxis {...axisProps} width={48} />
-        <Tooltip content={<Tip fmtLabel={(l, p) => `${fmtPct(p[0].payload.from, 1)} to ${fmtPct(p[0].payload.to, 1)}`} fmtValue={(v) => `${v} paths`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="ret" {...axisPropsFn()} tickFormatter={(v) => fmtPct(v, 0)} minTickGap={30} />
+        <YAxis {...axisPropsFn()} width={48} />
+        <Tooltip content={<Tip fmtLabel={(l, p) => `${fmtPct(p[0].payload.from, 1)} to ${fmtPct(p[0].payload.to, 1)}`} fmtValue={(v) => `${v} paths`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="count" name="Paths" isAnimationActive={false} radius={[3, 3, 0, 0]}>
           {histogram.map((b, i) => <Cell key={i} fill={b.from >= target ? C.aqua : b.to < 0 ? C.orange : C.muted} />)}
         </Bar>
@@ -312,10 +330,10 @@ export function PerModelBars({ perModel, labels }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="model" {...axisProps} tick={{ ...axisProps.tick, fontSize: 10 }} interval={0} />
-        <YAxis {...axisProps} domain={[0, 100]} width={36} />
-        <Tooltip content={<Tip fmtValue={(v) => `${v} / 100`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="model" {...axisPropsFn()} tick={{ ...axisPropsFn().tick, fontSize: 10 }} interval={0} />
+        <YAxis {...axisPropsFn()} domain={[0, 100]} width={36} />
+        <Tooltip content={<Tip fmtValue={(v) => `${v} / 100`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="score" name="Weighted subscore" isAnimationActive={false} radius={[4, 4, 0, 0]}>
           {data.map((d, i) => <Cell key={i} fill={d.score >= 60 ? C.aqua : d.score >= 40 ? C.yellow : C.orange} />)}
         </Bar>
@@ -329,9 +347,9 @@ export function ForwardPathChart({ path }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <LineChart data={path} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} width={44} domain={['auto', 'auto']} tickFormatter={(v) => fmt(v, 0)} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} width={44} domain={['auto', 'auto']} tickFormatter={(v) => fmt(v, 0)} />
         <Tooltip content={<Tip fmtValue={(v) => fmt(v, 1)} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: C.ink2 }} iconType="plainline" />
         <ReferenceLine y={100} stroke={C.axis} />
@@ -347,9 +365,9 @@ export function ScoreReturnScatter({ rows, spyReturn }) {
   return (
     <ResponsiveContainer width="100%" height={H + 40}>
       <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-        <CartesianGrid {...gridProps} vertical />
-        <XAxis type="number" dataKey="score" name="Score" domain={[0, 100]} {...axisProps} label={{ value: 'Conviction score (as of date)', fill: C.muted, fontSize: 11, position: 'insideBottom', offset: -4 }} />
-        <YAxis type="number" dataKey="forwardReturn" name="Return" {...axisProps} width={56} tickFormatter={(v) => fmtPct(v, 0)} />
+        <CartesianGrid {...gridPropsFn()} vertical />
+        <XAxis type="number" dataKey="score" name="Score" domain={[0, 100]} {...axisPropsFn()} label={{ value: 'Conviction score (as of date)', fill: C.muted, fontSize: 11, position: 'insideBottom', offset: -4 }} />
+        <YAxis type="number" dataKey="forwardReturn" name="Return" {...axisPropsFn()} width={56} tickFormatter={(v) => fmtPct(v, 0)} />
         <Tooltip cursor={{ stroke: C.axis }} content={({ active, payload }) => {
           if (!active || !payload || !payload.length) return null;
           const p = payload[0].payload;

@@ -42,7 +42,7 @@ export default async function handler(req, res) {
 
     const text = JSON.stringify(payload);
     if (text.length > 80000) return sendJson(res, 413, { error: 'Payload too large.' });
-    const kind = ['portfolio', 'asset', 'grade', 'optimize'].includes(payload.kind) ? payload.kind : 'stock';
+    const kind = ['portfolio', 'asset', 'grade', 'optimize', 'stress'].includes(payload.kind) ? payload.kind : 'stock';
     const isPortfolio = kind === 'portfolio';
     const SYSTEMS = {
       stock: SYSTEM,
@@ -57,7 +57,9 @@ export default async function handler(req, res) {
       asset: `Asset: ${ticker}\n\nComputed component scores and metrics (JSON):\n${text}\n\nExplain what drove the score, the strongest positive and negative points from these numbers, and the key risks. Components marked unavailable must be described as unavailable, never guessed.`,
       grade: `Portfolio grade (JSON):\n${text}\n\nExplain what drove the Portfolio Conviction Score using only these numbers.`,
       optimize: `Optimizer result (JSON):\n${text}\n\nExplain the chosen allocation using only these numbers.`,
+      stress: `Stress test result (JSON):\n${text}\n\nExplain what the historical scenarios and hypothetical shocks show using only these numbers.`,
     };
+    SYSTEMS.stress = `${RULES}\n- Write in Markdown with exactly these sections: "## Worst cases", "## What is most exposed", "## Caveats".\n- Historical scenarios in the payload are actual replayed returns; hypothetical shocks are model estimates and must be called estimates. Scenarios marked unavailable must be described as unavailable with the coverage reason, never guessed. Keep it under 300 words.`;
 
     // Pin the base URL so a stray ANTHROPIC_BASE_URL in the environment (e.g. a local proxy) cannot redirect the call.
     const client = new Anthropic({ apiKey, baseURL: 'https://api.anthropic.com' });

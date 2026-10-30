@@ -12,29 +12,31 @@ function Field({ label, hint, children }) {
   );
 }
 
-export default function SettingsPanel({ settings, onChange, onClose, rfInfo }) {
+export default function SettingsPanel({ settings, onChange, onClose, rfInfo, embedded = false }) {
   const set = (patch) => onChange({ ...settings, ...patch });
   const setDcf = (patch) => onChange({ ...settings, dcf: { ...settings.dcf, ...patch } });
   const setWeight = (id, v) => onChange({ ...settings, weights: { ...settings.weights, [id]: v === '' ? 0 : Math.max(0, Number(v)) } });
   const total = MODEL_ORDER.reduce((s, id) => s + (Number(settings.weights[id]) || 0), 0);
 
   return (
-    <section className="card p-4 md:p-5 space-y-5">
-      <header className="flex items-center justify-between">
-        <h2 className="font-semibold">Settings</h2>
-        <button className="btn" onClick={onClose}>Close</button>
-      </header>
+    <section className={embedded ? "space-y-6" : "card p-4 md:p-5 space-y-5"}>
+      {!embedded && (
+        <header className="flex items-center justify-between">
+          <h2 className="font-semibold">Settings</h2>
+          <button className="btn" onClick={onClose}>Close</button>
+        </header>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1">
         <div className="block">
           <div className="text-xs text-ink-2 mb-1">Risk-free rate (3-month Treasury yield, %)</div>
           <label className="flex items-center gap-2 text-sm mb-2">
             <input type="checkbox" checked={settings.riskFreeAuto !== false} onChange={(e) => set({ riskFreeAuto: e.target.checked })} />
-            <span>Look it up automatically from the U.S. Treasury</span>
+            <span>Look it up automatically (FRED 3-month Treasury)</span>
           </label>
           {settings.riskFreeAuto !== false ? (
             <div className="text-xs text-muted">
-              {rfInfo?.value != null ? <>Using <span className="num text-ink">{Number(rfInfo.value).toFixed(2)}%</span> as of {rfInfo.asOf} (Treasury daily par yield curve, 3-month).</> : rfInfo?.error ? <span className="text-[#fab219]">Lookup failed: {rfInfo.error}. Untick to enter it manually.</span> : 'Looking up…'}
+              {rfInfo?.value != null ? <>Using <span className="num text-ink">{Number(rfInfo.value).toFixed(2)}%</span> as of {rfInfo.asOf} (Treasury daily par yield curve, 3-month).</> : rfInfo?.error ? <span className="text-warn">Lookup failed: {rfInfo.error}. Untick to enter it manually.</span> : 'Looking up…'}
             </div>
           ) : (
             <>
@@ -65,7 +67,7 @@ export default function SettingsPanel({ settings, onChange, onClose, rfInfo }) {
           <h3 className="text-sm font-semibold">Conviction weights</h3>
           <div className="text-xs text-muted">Total {total} — weights are re-normalized, so only the ratios matter.</div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {MODEL_ORDER.map((id) => (
             <Field key={id} label={MODEL_LABELS[id]}>
               <input className="input" type="number" min="0" step="1" value={settings.weights[id]} onChange={(e) => setWeight(id, e.target.value)} />

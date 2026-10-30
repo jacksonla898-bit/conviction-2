@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light dark" />
     <title>Conviction 2.0</title>
-    <meta name="description" content="Six hand-built models, one 0–100 conviction score, every formula shown. Analyze any US stock or a whole portfolio, then backtest the score against what actually happened." />
+    <meta name="description" content="Six hand-built models, one 0–100 conviction score, every formula shown. Analyze any US stock, ETF or Treasury, grade, optimize and stress-test a portfolio, then backtest the score against what actually happened." />
     <link rel="canonical" href="https://www.tradeconviction.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Conviction 2.0" />
@@ -19,10 +19,22 @@
     <meta name="twitter:title" content="Conviction 2.0 — six models, one score, every number shown" />
     <meta name="twitter:description" content="Stock and portfolio analysis with every formula visible, plus point-in-time backtesting." />
     <meta name="twitter:image" content="https://www.tradeconviction.com/og.jpg" />
-    <meta name="theme-color" content="#0d0d0d" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d0d0d'/%3E%3Cpath d='M6 22 L13 14 L18 18 L26 8' stroke='%233987e5' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <meta name="theme-color" content="#f5f5f6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0b0c" media="(prefers-color-scheme: dark)" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111113'/%3E%3Cpath d='M6 22 L13 14 L18 18 L26 8' stroke='%232563eb' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <script>
+      // Apply the saved theme before the first paint to avoid a flash.
+      try {
+        var s = JSON.parse(localStorage.getItem('conviction2.settings.v1') || '{}');
+        var t = s.theme === 'light' || s.theme === 'dark' ? s.theme : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    </script>
   </head>
-  <body class="bg-[#0d0d0d] text-white">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

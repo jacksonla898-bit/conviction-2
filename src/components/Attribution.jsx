@@ -56,7 +56,7 @@ function Tip({ active, payload }) {
     return (
       <div className="chart-tip max-w-[260px]">
         <div className="text-ink font-semibold">{r.label}</div>
-        <div className="text-[#fab219]">{r.excludedKind === 'weight' ? 'Weight 0 — excluded' : 'Unavailable — excluded'}</div>
+        <div className="text-warn">{r.excludedKind === 'weight' ? 'Weight 0 — excluded' : 'Unavailable — excluded'}</div>
         <div className="text-ink-2">{r.excludedKind === 'weight' ? `Subscore ${r.subscore}, but its weight is set to 0 in Settings.` : `Reason: ${r.reason}`}</div>
         <div className="text-muted">Contribution 0.0. The other weights were renormalized.</div>
       </div>
@@ -73,7 +73,7 @@ function Tip({ active, payload }) {
   );
 }
 
-const FILL = { anchor: '#52514e', pos: C.aqua, neg: C.orange, excluded: 'transparent', round: '#898781' };
+const FILL = { anchor: 'var(--axis)', pos: C.aqua, neg: C.orange, excluded: 'transparent', round: 'var(--muted)' };
 
 export default function Attribution({ attribution }) {
   if (!attribution) return null;
@@ -91,10 +91,10 @@ export default function Attribution({ attribution }) {
             <CartesianGrid stroke={C.grid} vertical={false} />
             <XAxis dataKey="name" stroke={C.axis} tick={{ fill: C.muted, fontSize: 11 }} tickLine={false} interval={0} />
             <YAxis domain={[lo, hi]} ticks={ticks} stroke={C.axis} tick={{ fill: C.muted, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} width={36} allowDataOverflow />
-            <Tooltip content={<Tip />} cursor={{ fill: '#ffffff10' }} />
+            <Tooltip content={<Tip />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
             <ReferenceLine y={50} stroke={C.ink2} strokeDasharray="4 4" />
             <Bar dataKey="range" isAnimationActive={false} radius={[3, 3, 3, 3]} minPointSize={2}>
-              {data.map((d) => <Cell key={d.key} fill={FILL[d.kind]} stroke={d.kind === 'excluded' ? '#fab219' : 'none'} strokeDasharray={d.kind === 'excluded' ? '3 3' : undefined} />)}
+              {data.map((d) => <Cell key={d.key} fill={FILL[d.kind]} stroke={d.kind === 'excluded' ? 'var(--score-warn)' : 'none'} strokeDasharray={d.kind === 'excluded' ? '3 3' : undefined} />)}
               <LabelList dataKey="text" content={<BarLabel />} />
             </Bar>
           </BarChart>
@@ -102,7 +102,7 @@ export default function Attribution({ attribution }) {
       </div>
 
       {excluded.length > 0 && (
-        <p className="mt-2 text-xs text-[#fab219]">
+        <p className="mt-2 text-xs text-warn">
           {excluded.map((r) => `${r.label}: ${r.excludedKind === 'weight' ? 'weight 0, excluded' : 'Unavailable — excluded'}`).join('; ')}. The remaining weights were renormalized to total 100%; the weights actually used are shown below.
         </p>
       )}
@@ -126,7 +126,7 @@ export default function Attribution({ attribution }) {
                 <td className="p-1 text-right num">{r.subscore ?? 'Unavailable'}</td>
                 <td className="p-1 text-right num text-muted">{r.nominalWeight}</td>
                 <td className="p-1 text-right num">{r.excluded ? 'excluded' : `${(r.normWeight * 100).toFixed(1)}%`}</td>
-                <td className="p-1 text-right num" style={{ color: r.excluded ? C.muted : r.units >= 0 ? '#3ecf3e' : '#e66767' }}>{signed(r.contribution)}</td>
+                <td className="p-1 text-right num" style={{ color: r.excluded ? C.muted : r.units >= 0 ? 'var(--score-good)' : 'var(--score-bad)' }}>{signed(r.contribution)}</td>
                 <td className="p-1 text-ink-2">{r.excluded ? (r.excludedKind === 'weight' ? 'Weight set to 0 in Settings.' : `Unavailable: ${r.reason}`) : r.drivers.map((d) => `${d.label}: ${d.value}`).join('; ')}</td>
               </tr>
             ))}

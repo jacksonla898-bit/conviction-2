@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { runStockAnalysis } from '../lib/pipeline.js';
 import { MODEL_ORDER, MODEL_LABELS } from '../models/conviction.js';
 import { fmt, fmtPct, fmtMoney } from '../models/_math.js';
+import { labelText } from '../lib/labels.js';
 
 function labelColor(label) {
   switch (label) {
-    case 'Low': return '#e66767';
-    case 'Neutral': return '#fab219';
-    case 'High': return '#3ecf3e';
-    case 'Very High': return '#0ca30c';
-    default: return '#898781';
+    case 'Low': return 'var(--score-bad)';
+    case 'Neutral': return 'var(--score-warn)';
+    case 'High': return 'var(--score-good)';
+    case 'Very High': return 'var(--score-good)';
+    default: return 'var(--muted)';
   }
 }
 
@@ -72,7 +73,7 @@ export default function ComparePage({ settings, onOpenStock }) {
       </form>
 
       {running && <div className="text-sm text-ink-2 flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-s1 border-t-transparent rounded-full animate-spin" />Running all six models for both stocks…</div>}
-      {err && <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm text-[#e66767]">{err}</div>}
+      {err && <div className="rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{err}</div>}
 
       {out && (
         <>
@@ -83,7 +84,7 @@ export default function ComparePage({ settings, onOpenStock }) {
                   <button className="text-xl font-bold hover:underline" onClick={() => onOpenStock(r.ticker)}>{r.ticker}</button>
                   <div className="text-xs text-muted truncate">{r.companyName || ''}</div>
                   <div className="num text-5xl font-bold mt-2" style={{ color: labelColor(r.conviction.label) }}>{r.conviction.score ?? '—'}</div>
-                  <div className="text-sm" style={{ color: labelColor(r.conviction.label) }}>{r.conviction.score === null ? r.error : `${r.conviction.label} conviction`}</div>
+                  <div className="text-sm" style={{ color: labelColor(r.conviction.label) }}>{r.conviction.score === null ? r.error : `${labelText(r.conviction.label)} conviction`}</div>
                 </div>
               ))}
             </div>
@@ -143,10 +144,10 @@ export default function ComparePage({ settings, onOpenStock }) {
 function Cell({ v, other, fmtv, better, note }) {
   const has = v !== null && v !== undefined && Number.isFinite(v);
   const hasOther = other !== null && other !== undefined && Number.isFinite(other);
-  let color = '#c3c2b7';
+  let color = 'var(--ink-2)';
   if (better !== null && has && hasOther && v !== other) {
     const win = better ? v > other : v < other;
-    color = win ? '#3ecf3e' : '#c3c2b7';
+    color = win ? 'var(--score-good)' : 'var(--ink-2)';
   }
   return <td className="py-2 text-right num" style={{ color }} title={note || ''}>{has ? fmtv(v) : 'n/a'}</td>;
 }

@@ -22,7 +22,7 @@ export default function DataSources({ sources }) {
                 <td className="p-1 text-ink-2">{s.type}</td>
                 <td className="p-1 text-ink">{s.source}</td>
                 <td className="p-1 num">{s.asOf || '—'}</td>
-                <td className="p-1">{s.status === 'ok' ? <span className="text-ink-2">{s.detail}</span> : <><span className="text-[#fab219] font-semibold">Unavailable</span> <span className="text-muted">{s.reason}</span></>}</td>
+                <td className="p-1">{s.status === 'ok' ? <span className="text-ink-2">{s.detail}</span> : <><span className="text-warn font-semibold">Unavailable</span> <span className="text-muted">{s.reason}</span></>}</td>
               </tr>
             ))}
           </tbody>

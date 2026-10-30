@@ -1,11 +1,11 @@
 import React from 'react';
 import { MODEL_ORDER, MODEL_LABELS } from '../models/conviction.js';
 import { renderMarkdown } from '../lib/markdown.jsx';
-import { MATH_MODE_LABEL } from '../config.js';
+import { WHARTON_BADGE } from '../config.js';
 
 /** Badge shown wherever the no-AI mode is active. */
 export function MathModeBadge() {
-  return <span className="pill bg-[#9085e922] text-[#b3abf5] border border-[#9085e955]">{MATH_MODE_LABEL}: no AI-generated content</span>;
+  return <span className="pill bg-accent/15 text-accent border border-accent/40">{WHARTON_BADGE}</span>;
 }
 
 /**
@@ -48,7 +48,7 @@ export function WhartonReasoning({ results, conviction }) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Methodology</h2>
-          <p className="text-xs text-muted">Every number below is computed in the browser from the listed inputs. Fixed templates; nothing is generated. Use "Download report" at the top for the PDF.</p>
+          <p className="text-xs text-muted">Every number below is computed in the browser from the listed inputs. Fixed templates; nothing is generated. Use "Export PDF" at the top for the PDF.</p>
         </div>
         <MathModeBadge />
       </header>
@@ -89,7 +89,7 @@ export function WhartonReasoning({ results, conviction }) {
                 <span className="num text-sm text-ink-2">{r.available ? `subscore ${r.subscore}` : 'unavailable'}</span>
               </div>
               {!r.available ? (
-                <p className="text-sm text-[#e66767] mt-1">{r.error}</p>
+                <p className="text-sm text-bad mt-1">{r.error}</p>
               ) : (
                 <>
                   <p className="text-xs text-muted mt-1">{r.note}</p>

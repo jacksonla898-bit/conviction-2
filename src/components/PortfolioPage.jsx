@@ -8,25 +8,12 @@ import { fmt, fmtPct } from '../models/_math.js';
 import { PortfolioFanChart, PortfolioHistogram, CorrelationTable, PerModelBars, DrawdownChart } from './charts.jsx';
 import { StandardReasoning, MathModeBadge } from './Reasoning.jsx';
 import { exportElementToPdf } from '../lib/exportPdf.js';
+import { labelText, labelColor, scoreClass } from '../lib/labels.js';
+import { Unavailable, UnavailableBlock, SkeletonCard, ErrorState } from './ui.jsx';
 
-const PART_COLORS = { conviction: '#3987e5', target: '#9085e9', risk: '#199e70' };
+const PART_COLORS = { conviction: 'var(--chart-1)', target: 'var(--chart-3)', risk: 'var(--chart-2)' };
 const SHORT = { dcf: 'DCF', monteCarlo: 'MC', risk: 'Risk', momentum: 'Mom', health: 'Health', earnings: 'Earn' };
 
-function labelColor(label) {
-  switch (label) {
-    case 'Low': return '#e66767';
-    case 'Neutral': return '#fab219';
-    case 'High': return '#3ecf3e';
-    case 'Very High': return '#0ca30c';
-    default: return '#898781';
-  }
-}
-function scoreClass(s) {
-  if (s === null || s === undefined) return 'bg-surface-2 text-muted';
-  if (s < 40) return 'bg-[#d03b3b22] text-[#e66767]';
-  if (s < 60) return 'bg-[#c9850022] text-[#fab219]';
-  return 'bg-[#0ca30c22] text-[#3ecf3e]';
-}
 
 function ChartBlock({ title, explanation, children }) {
   const [open, setOpen] = useState(false);
@@ -60,7 +47,7 @@ function Metric({ label, value }) {
 }
 
 /* ---------------- Form ---------------- */
-function PortfolioForm({ def, onChange, onRun, running }) {
+function PortfolioForm({ def, onChange, onRun, running, embedded }) {
   const set = (patch) => onChange({ ...def, ...patch });
   const setHolding = (i, patch) => set({ holdings: def.holdings.map((h, k) => (k === i ? { ...h, ...patch } : h)) });
   const weights = normalizeWeights(def.holdings);
@@ -69,7 +56,7 @@ function PortfolioForm({ def, onChange, onRun, running }) {
 
   return (
     <form className="card p-4 md:p-5 space-y-4" onSubmit={(e) => { e.preventDefault(); if (valid >= 1 && !running) onRun(); }}>
-      <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+      {!embedded && <div className="grid gap-4 md:grid-cols-[1fr_auto]">
         <label className="block">
           <div className="text-xs text-ink-2 mb-1">Portfolio name</div>
           <input className="input" placeholder="e.g. AI capex basket" value={def.name} onChange={(e) => set({ name: e.target.value })} />
@@ -81,9 +68,9 @@ function PortfolioForm({ def, onChange, onRun, running }) {
             <option value="dollars">dollar amounts</option>
           </select>
         </label>
-      </div>
+      </div>}
 
-      <div>
+      {embedded ? <div className="text-xs text-ink-2">Using the {valid} holding{valid === 1 ? '' : 's'} and weights from the grade above: {def.holdings.filter((h) => h.ticker).map((h) => `${h.ticker} ${fmtPct(Number(h.amount) / 100, 1)}`).join(', ')}.</div> : <div>
         <div className="text-xs text-ink-2 mb-1">Holdings (any amounts; weights are worked out from the ratios)</div>
         <div className="space-y-2">
           {def.holdings.map((h, i) => (
@@ -96,7 +83,7 @@ function PortfolioForm({ def, onChange, onRun, running }) {
           ))}
         </div>
         <button type="button" className="btn mt-2" onClick={() => set({ holdings: [...def.holdings, { ticker: '', amount: '' }] })}>+ Add holding</button>
-      </div>
+      </div>}
 
       <div className="grid gap-4 md:grid-cols-3">
         <label className="block">
@@ -138,8 +125,8 @@ function HoldingsProgress({ holdings }) {
       <div className="text-xs uppercase tracking-wide text-muted mb-2">Analyzing holdings</div>
       <div className="flex flex-wrap gap-2">
         {holdings.map((h) => (
-          <span key={h.ticker} className={`pill border ${h.status === 'done' ? 'border-[#0ca30c55] text-[#3ecf3e]' : h.status === 'failed' ? 'border-[#d03b3b55] text-[#e66767]' : h.status === 'loading' ? 'border-s1 text-s1' : 'border-axis text-muted'}`}>
-            {h.status === 'loading' && <span className="inline-block w-3 h-3 mr-1 border-2 border-s1 border-t-transparent rounded-full animate-spin" />}
+          <span key={h.ticker} className={`pill border ${h.status === 'done' ? 'border-good/40 text-good' : h.status === 'failed' ? 'border-bad/40 text-bad' : h.status === 'loading' ? 'border-s1 text-s1' : 'border-axis text-muted'}`}>
+
             {h.ticker}{h.status === 'done' ? ` ${h.conviction.score}` : h.status === 'failed' ? ' failed' : ''}
           </span>
         ))}
@@ -158,8 +145,8 @@ function PortfolioScoreCard({ def, analysis }) {
           <div className="flex items-baseline gap-4">
             <div className="num text-6xl md:text-7xl font-bold leading-none" style={{ color: labelColor(score.label) }}>{score.score === null ? '—' : score.score}</div>
             <div>
-              <div className="text-lg font-semibold" style={{ color: labelColor(score.label) }}>{score.score === null ? 'No score' : `${score.label} conviction`}</div>
-              <div className="text-xs text-muted">0–39 Low · 40–59 Neutral · 60–79 High · 80–100 Very High</div>
+              <div className="text-lg font-semibold" style={{ color: labelColor(score.label) }}>{score.score === null ? 'No score' : `${labelText(score.label)} conviction`}</div>
+              <div className="text-xs text-muted">0–39 Weak · 40–59 Neutral · 60–79 Strong · 80–100 Very Strong</div>
             </div>
           </div>
           <div className="md:ml-auto md:text-right">
@@ -183,7 +170,7 @@ function PortfolioScoreCard({ def, analysis }) {
                 </div>
               ))}
             </div>
-            {score.excluded.length > 0 && <div className="mt-2 text-xs text-[#fab219]">Excluded: {score.excluded.map((e) => `${e.label} (${e.reason})`).join('; ')}</div>}
+            {score.excluded.length > 0 && <div className="mt-2 text-xs text-warn">Excluded: {score.excluded.map((e) => `${e.label} (${e.reason})`).join('; ')}</div>}
           </div>
         )}
       </section>
@@ -218,14 +205,14 @@ function HoldingsTable({ holdings, onOpenStock }) {
                 <td className="p-1">
                   <button className="text-s1 hover:underline font-semibold" onClick={() => onOpenStock(h.ticker)} title="Open full single-stock analysis">{h.ticker}</button>
                   {h.companyName && <div className="text-muted truncate max-w-[160px]">{h.companyName}</div>}
-                  {h.status === 'failed' && <div className="text-[#e66767]">{h.error}</div>}
+                  {h.status === 'failed' && <div className="text-bad">{h.error}</div>}
                 </td>
                 <td className="p-1 text-right num">{fmtPct(h.weight)}</td>
                 <td className="p-1 text-right num">{h.price ? `$${fmt(h.price)}` : '—'}</td>
                 <td className="p-1 text-right"><span className={`pill num ${scoreClass(h.conviction?.score ?? null)}`}>{h.conviction?.score ?? '—'}</span></td>
                 {MODEL_ORDER.map((id) => {
                   const r = h.results?.[id];
-                  return <td key={id} className="p-1 text-right num" title={r && !r.available ? r.error : ''} style={{ color: r?.available ? (r.subscore >= 60 ? '#3ecf3e' : r.subscore >= 40 ? '#fab219' : '#e66767') : '#898781' }}>{r?.available ? r.subscore : 'n/a'}</td>;
+                  return <td key={id} className="p-1 text-right num" style={{ color: r?.available ? (r.subscore >= 60 ? 'var(--score-good)' : r.subscore >= 40 ? 'var(--score-warn)' : 'var(--score-bad)') : 'var(--muted)' }}>{r?.available ? r.subscore : <Unavailable reason={r ? r.error : 'not run'} />}</td>;
                 })}
               </tr>
             ))}
@@ -281,10 +268,10 @@ function PartCard({ part, def }) {
         <div className={`pill num text-base px-3 py-1 ${scoreClass(part.available ? part.subscore : null)}`}>{part.available ? part.subscore : '—'}</div>
       </header>
       {!part.available ? (
-        <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm"><div className="font-semibold text-[#e66767]">Unavailable — excluded from the portfolio score</div><div className="text-ink-2 mt-1">{part.error}</div></div>
+        <UnavailableBlock title="Unavailable — excluded from the portfolio score" reason={part.error} />
       ) : (
         <>
-          {part.warning && <div className="rounded-lg border border-[#fab21955] bg-[#fab21914] p-2 text-xs text-[#fab219]">{part.warning}</div>}
+          {part.warning && <div className="rounded-lg border border-warn/40 bg-warn/10 p-2 text-xs text-warn">{part.warning}</div>}
           {charts}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 pt-2 border-t border-line">{metrics.map(([l, v]) => <Metric key={l} label={l} value={v} />)}</div>
         </>
@@ -293,7 +280,7 @@ function PartCard({ part, def }) {
   );
 }
 
-function PortfolioMethodology({ def, analysis, reportRef }) {
+function PortfolioMethodology({ def, analysis, reportRef, embedded }) {
   const [exporting, setExporting] = useState(false);
   const [err, setErr] = useState(null);
   const doExport = async () => {
@@ -317,10 +304,10 @@ function PortfolioMethodology({ def, analysis, reportRef }) {
         </div>
         <div className="flex items-center gap-2">
           <MathModeBadge />
-          <button className="btn" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : 'Export PDF'}</button>
+          {!embedded && <button className="btn" onClick={doExport} disabled={exporting}>{exporting ? 'Exporting…' : 'Export PDF'}</button>}
         </div>
       </header>
-      {err && <div className="mt-3 text-sm text-[#e66767]">{err}</div>}
+      {err && <div className="mt-3 text-sm text-bad">{err}</div>}
       <div className="mt-5">
         <h3 className="text-sm font-semibold">Portfolio conviction</h3>
         <table className="steps-table mt-2">
@@ -330,7 +317,7 @@ function PortfolioMethodology({ def, analysis, reportRef }) {
               <td>Blend</td>
               <td className="num">score = Σ wₖ·sₖ / Σ wₖ</td>
               <td className="num">({analysis.score.breakdown.map((b) => `${b.weight}×${b.subscore}`).join(' + ')}) / {analysis.score.sumWeights}</td>
-              <td className="num">{analysis.score.score} → {analysis.score.label}</td>
+              <td className="num">{analysis.score.score} → {labelText(analysis.score.label)}</td>
             </tr>
           </tbody>
         </table>
@@ -339,7 +326,7 @@ function PortfolioMethodology({ def, analysis, reportRef }) {
         {parts.map((r) => (
           <div key={r.id}>
             <div className="flex items-baseline justify-between gap-3"><h3 className="text-sm font-semibold">{r.name}</h3><span className="num text-sm text-ink-2">{r.available ? `subscore ${r.subscore}` : 'unavailable'}</span></div>
-            {!r.available ? <p className="text-sm text-[#e66767] mt-1">{r.error}</p> : (
+            {!r.available ? <p className="text-sm text-bad mt-1">{r.error}</p> : (
               <>
                 <p className="text-xs text-muted mt-1">{r.note}</p>
                 <div className="mt-2 text-xs"><span className="text-muted">Inputs: </span>{r.inputs.map((inp, i) => <span key={i} className="text-ink-2">{inp.label} = <span className="num text-ink">{inp.value}</span> ({inp.source}){i < r.inputs.length - 1 ? '; ' : ''}</span>)}</div>
@@ -372,8 +359,9 @@ function PortfolioMethodology({ def, analysis, reportRef }) {
 }
 
 /* ---------------- Page ---------------- */
-export default function PortfolioPage({ settings, onOpenStock }) {
-  const [def, setDef] = useState(loadPortfolioDraft);
+export default function PortfolioPage({ settings, onOpenStock, embedded = false, holdingsOverride = null }) {
+  const [def, setDef] = useState(() => (holdingsOverride ? { ...loadPortfolioDraft(), holdings: holdingsOverride.holdings, amountMode: holdingsOverride.amountMode } : loadPortfolioDraft()));
+  useEffect(() => { if (holdingsOverride) setDef((d) => ({ ...d, holdings: holdingsOverride.holdings, amountMode: holdingsOverride.amountMode })); }, [holdingsOverride]);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(null);
   const [analysis, setAnalysis] = useState(null);
@@ -382,7 +370,7 @@ export default function PortfolioPage({ settings, onOpenStock }) {
   const reportRef = useRef(null);
   const runId = useRef(0);
 
-  useEffect(() => savePortfolioDraft(def), [def]);
+  useEffect(() => { savePortfolioDraft(def); }, [def]);
 
   const run = useCallback(async () => {
     runId.current += 1;
@@ -432,12 +420,12 @@ export default function PortfolioPage({ settings, onOpenStock }) {
 
   return (
     <div className="space-y-5">
-      <PortfolioForm def={def} onChange={setDef} onRun={run} running={running} />
+      <PortfolioForm def={def} onChange={setDef} onRun={run} running={running} embedded={embedded} />
 
       {running && progress && <HoldingsProgress holdings={progress.holdings} />}
-      {running && progress?.stage === 'modeling' && <div className="text-sm text-ink-2 flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-s1 border-t-transparent rounded-full animate-spin" />Running the portfolio models…</div>}
+      {running && <div className="space-y-5" aria-busy="true"><SkeletonCard lines={3} /><SkeletonCard chart /></div>}
 
-      {analysis && analysis.error && <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm text-[#e66767]">{analysis.error}</div>}
+      {analysis && analysis.error && <ErrorState title="Could not analyze" text={analysis.error} />}
 
       {analysis && !analysis.error && (
         <div ref={reportRef} className="space-y-5">
@@ -448,18 +436,18 @@ export default function PortfolioPage({ settings, onOpenStock }) {
           <PartCard part={analysis.parts.risk} def={def} />
           {settings.mode === 'standard'
             ? <StandardReasoning state={reasoning} onGenerate={generate} canGenerate={analysis.score.score !== null} fallback={portfolioConclusion(def, analysis)} />
-            : <PortfolioMethodology def={def} analysis={analysis} reportRef={reportRef} />}
+            : <PortfolioMethodology def={def} analysis={analysis} reportRef={reportRef} embedded={embedded} />}
         </div>
       )}
 
-      {saved.length > 0 && (
+      {!embedded && saved.length > 0 && (
         <section className="card p-4">
           <header className="flex items-center justify-between mb-2"><h2 className="text-sm font-semibold">Saved portfolios</h2></header>
           <div className="flex flex-wrap gap-2">
             {saved.map((p) => (
               <span key={p.id} className="inline-flex items-center gap-1">
                 <button className="btn text-xs" onClick={() => setDef({ ...DEFAULT_PORTFOLIO, ...p.def, horizon: { ...DEFAULT_PORTFOLIO.horizon, ...(p.def.horizon || {}) } })} title={`${p.date} · ${p.def.holdings.map((h) => h.ticker).join(', ')}`}>
-                  <span className="font-bold">{p.name}</span><span className="num">{p.score}</span><span className="text-muted">{p.label} · {p.date}</span>
+                  <span className="font-bold">{p.name}</span><span className="num">{p.score}</span><span className="text-muted">{labelText(p.label)} · {p.date}</span>
                 </button>
                 <button className="text-muted hover:text-ink text-xs px-1" aria-label="Delete saved portfolio" onClick={() => setSaved(deletePortfolioEntry(p.id))}>×</button>
               </span>

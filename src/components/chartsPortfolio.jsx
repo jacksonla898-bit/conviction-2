@@ -4,8 +4,8 @@ import { ResponsiveContainer, LineChart, BarChart, Line, Bar, Cell, XAxis, YAxis
 import { fmt, fmtMoney } from '../models/_math.js';
 import { C } from './charts.jsx';
 
-const axisProps = { stroke: C.axis, tick: { fill: C.muted, fontSize: 11, fontFamily: 'ui-monospace, monospace' }, tickLine: false, axisLine: { stroke: C.axis } };
-const gridProps = { stroke: C.grid, strokeDasharray: '0', vertical: false };
+const axisPropsFn = () => ({ stroke: C.axis, tick: { fill: C.muted, fontSize: 11 }, tickLine: false, axisLine: { stroke: C.axis } });
+const gridPropsFn = () => ({ stroke: C.grid, strokeDasharray: '0', vertical: false });
 const H = 230;
 const shortDate = (d) => (typeof d === 'string' ? d.slice(0, 7) : d);
 
@@ -30,12 +30,12 @@ export function YieldCurveChart({ points }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <LineChart data={points} margin={{ top: 14, right: 12, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="label" {...axisProps} interval={0} />
-        <YAxis {...axisProps} width={44} domain={['auto', 'auto']} tickFormatter={(v) => `${fmt(v, 1)}%`} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="label" {...axisPropsFn()} interval={0} />
+        <YAxis {...axisPropsFn()} width={44} domain={['auto', 'auto']} tickFormatter={(v) => `${fmt(v, 1)}%`} />
         <Tooltip content={<Tip fmtLabel={(l, p) => `${l} (${p[0].payload.id})`} fmtValue={(v) => `${fmt(v, 2)}%`} />} />
         <Line type="monotone" dataKey="yield" name="Yield" stroke={C.blue} strokeWidth={2} dot={{ r: 3, fill: C.blue }} isAnimationActive={false} />
-        {sel && <ReferenceDot x={sel.label} y={sel.yield} r={7} fill={C.yellow} stroke="#0d0d0d" label={{ value: 'this', fill: C.yellow, fontSize: 10, position: 'top' }} />}
+        {sel && <ReferenceDot x={sel.label} y={sel.yield} r={7} fill={C.yellow} stroke={C.surface} label={{ value: 'this', fill: C.yellow, fontSize: 10, position: 'top' }} />}
       </LineChart>
     </ResponsiveContainer>
   );
@@ -45,9 +45,9 @@ export function YieldHistoryChart({ series }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} width={44} domain={['auto', 'auto']} tickFormatter={(v) => `${fmt(v, 1)}%`} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} width={44} domain={['auto', 'auto']} tickFormatter={(v) => `${fmt(v, 1)}%`} />
         <Tooltip content={<Tip fmtValue={(v) => `${fmt(v, 2)}%`} />} />
         <Line type="monotone" dataKey="yield" name="Yield" stroke={C.blue} strokeWidth={1.5} dot={false} isAnimationActive={false} />
       </LineChart>
@@ -59,10 +59,10 @@ export function DollarVolumeChart({ series }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={0}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} width={56} tickFormatter={(v) => fmtMoney(v, 0)} />
-        <Tooltip content={<Tip fmtValue={(v) => fmtMoney(v, 1)} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} width={56} tickFormatter={(v) => fmtMoney(v, 0)} />
+        <Tooltip content={<Tip fmtValue={(v) => fmtMoney(v, 1)} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="dollarVolume" name="Dollar volume (IEX)" fill={C.blue} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
@@ -73,10 +73,10 @@ export function DividendsChart({ series }) {
   return (
     <ResponsiveContainer width="100%" height={H}>
       <BarChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} />
-        <YAxis {...axisProps} width={56} tickFormatter={(v) => `$${fmt(v, 2)}`} />
-        <Tooltip content={<Tip fmtValue={(v) => `$${fmt(v, 4)} per share`} />} cursor={{ fill: '#ffffff10' }} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} />
+        <YAxis {...axisPropsFn()} width={56} tickFormatter={(v) => `$${fmt(v, 2)}`} />
+        <Tooltip content={<Tip fmtValue={(v) => `$${fmt(v, 4)} per share`} />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="rate" name="Cash dividend" fill={C.aqua} isAnimationActive={false} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
@@ -88,9 +88,9 @@ export function CumulativeChart({ data }) {
   return (
     <ResponsiveContainer width="100%" height={H + 30}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid {...gridProps} />
-        <XAxis dataKey="date" {...axisProps} tickFormatter={shortDate} minTickGap={60} />
-        <YAxis {...axisProps} width={52} tickFormatter={(v) => `${fmt(v, 0)}%`} domain={['auto', 'auto']} />
+        <CartesianGrid {...gridPropsFn()} />
+        <XAxis dataKey="date" {...axisPropsFn()} tickFormatter={shortDate} minTickGap={60} />
+        <YAxis {...axisPropsFn()} width={52} tickFormatter={(v) => `${fmt(v, 0)}%`} domain={['auto', 'auto']} />
         <Tooltip content={<Tip fmtValue={(v) => `${fmt(v, 1)}%`} />} />
         <Legend wrapperStyle={{ fontSize: 11, color: C.ink2 }} iconType="plainline" />
         <ReferenceLine y={0} stroke={C.axis} />
@@ -110,7 +110,7 @@ export function AllocationPie({ classWeights, labels }) {
     <ResponsiveContainer width="100%" height={H}>
       <PieChart>
         <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={88} paddingAngle={2} isAnimationActive={false} label={({ name, value }) => `${name} ${value.toFixed(0)}%`} labelLine={{ stroke: C.axis }}>
-          {data.map((d) => <Cell key={d.key} fill={CLASS_COLORS[d.key] || C.muted} stroke="#0d0d0d" />)}
+          {data.map((d) => <Cell key={d.key} fill={CLASS_COLORS[d.key] || C.muted} stroke={C.surface} />)}
         </Pie>
         <Tooltip content={<Tip fmtValue={(v) => `${fmt(v, 1)}%`} />} />
       </PieChart>
@@ -119,7 +119,7 @@ export function AllocationPie({ classWeights, labels }) {
 }
 
 export function CorrelationHeatmap({ corr, tickers }) {
-  const color = (v) => (v >= 0 ? `rgba(217, 89, 38, ${0.08 + 0.7 * Math.min(1, v)})` : `rgba(57, 135, 229, ${0.08 + 0.7 * Math.min(1, -v)})`);
+  const color = (v) => (v >= 0 ? `color-mix(in srgb, var(--chart-5) ${Math.round(8 + 70 * Math.min(1, v))}%, transparent)` : `color-mix(in srgb, var(--chart-1) ${Math.round(8 + 70 * Math.min(1, -v))}%, transparent)`);
   return (
     <div className="overflow-x-auto">
       <table className="text-xs num">
@@ -128,7 +128,7 @@ export function CorrelationHeatmap({ corr, tickers }) {
           {corr.map((row, i) => (
             <tr key={i}>
               <td className="p-1 text-ink-2 font-semibold">{tickers[i]}</td>
-              {row.map((v, j) => <td key={j} className="p-1 text-right text-ink" style={{ background: i === j ? '#222221' : v === null ? 'transparent' : color(v), minWidth: 52 }}>{v === null ? 'n/a' : v.toFixed(2)}</td>)}
+              {row.map((v, j) => <td key={j} className="p-1 text-right text-ink" style={{ background: i === j ? 'var(--surface-2)' : v === null ? 'transparent' : color(v), minWidth: 52 }}>{v === null ? 'n/a' : v.toFixed(2)}</td>)}
             </tr>
           ))}
         </tbody>
@@ -144,9 +144,9 @@ export function FrontierChart({ frontier, chosen, equal, assets, volCap }) {
   return (
     <ResponsiveContainer width="100%" height={H + 40}>
       <ScatterChart margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-        <CartesianGrid {...gridProps} vertical />
-        <XAxis type="number" dataKey="x" name="Volatility" {...axisProps} tickFormatter={(v) => `${fmt(v, 0)}%`} label={{ value: 'Annualized volatility', fill: C.muted, fontSize: 11, position: 'insideBottom', offset: -4 }} />
-        <YAxis type="number" dataKey="y" name="Return" {...axisProps} width={52} tickFormatter={(v) => `${fmt(v, 0)}%`} />
+        <CartesianGrid {...gridPropsFn()} vertical />
+        <XAxis type="number" dataKey="x" name="Volatility" {...axisPropsFn()} tickFormatter={(v) => `${fmt(v, 0)}%`} label={{ value: 'Annualized volatility', fill: C.muted, fontSize: 11, position: 'insideBottom', offset: -4 }} />
+        <YAxis type="number" dataKey="y" name="Return" {...axisPropsFn()} width={52} tickFormatter={(v) => `${fmt(v, 0)}%`} />
         <Tooltip cursor={{ stroke: C.axis }} content={({ active, payload }) => {
           if (!active || !payload || !payload.length) return null;
           const p = payload[0].payload;

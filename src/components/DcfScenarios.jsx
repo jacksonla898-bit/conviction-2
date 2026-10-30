@@ -17,7 +17,7 @@ function TornadoTip({ active, payload }) {
       <div className="text-ink font-semibold">{r.label}</div>
       <div className="text-ink-2">At {r.lowInput}: <span className="num text-ink">{usd(r.valueAtLow)}</span></div>
       <div className="text-ink-2">At {r.highInput}: <span className="num text-ink">{usd(r.valueAtHigh)}</span></div>
-      {r.note && <div className="text-[#fab219]">Unavailable end: {r.note}</div>}
+      {r.note && <div className="text-warn">Unavailable end: {r.note}</div>}
       <div className="text-muted">All other inputs held at Base.</div>
     </div>
   );
@@ -35,9 +35,9 @@ export function TornadoChart({ tornado }) {
         <CartesianGrid stroke={C.grid} horizontal={false} />
         <XAxis type="number" domain={[Math.max(0, lo - pad), hi + pad]} stroke={C.axis} tick={{ fill: C.muted, fontSize: 11, fontFamily: 'ui-monospace, monospace' }} tickLine={false} tickFormatter={(v) => `$${fmt(v, 0)}`} />
         <YAxis type="category" dataKey="label" width={118} stroke={C.axis} tick={{ fill: C.ink2, fontSize: 11 }} tickLine={false} />
-        <Tooltip content={<TornadoTip />} cursor={{ fill: '#ffffff10' }} />
+        <Tooltip content={<TornadoTip />} cursor={{ fill: 'color-mix(in srgb, var(--ink) 6%, transparent)' }} />
         <Bar dataKey="range" fill={C.blue} isAnimationActive={false} radius={[3, 3, 3, 3]} minPointSize={2} />
-        <ReferenceLine x={tornado.baseValue} stroke="#ffffff" label={{ value: 'base', fill: '#ffffff', fontSize: 10, position: 'top' }} />
+        <ReferenceLine x={tornado.baseValue} stroke="var(--ink)" label={{ value: 'base', fill: 'var(--ink)', fontSize: 10, position: 'top' }} />
         <ReferenceLine x={tornado.price} stroke={C.yellow} strokeDasharray="4 4" label={{ value: 'price', fill: C.yellow, fontSize: 10, position: 'top' }} />
       </BarChart>
     </ResponsiveContainer>
@@ -63,7 +63,7 @@ export function DcfGrid({ grid }) {
                 const up = v === null ? null : v / grid.price - 1;
                 const bg = v === null ? 'transparent' : up >= 0 ? `rgba(12,163,12,${Math.min(0.5, 0.12 + Math.abs(up) * 0.4)})` : `rgba(208,59,59,${Math.min(0.5, 0.12 + Math.abs(up) * 0.4)})`;
                 return (
-                  <td key={j} className="p-1 text-right text-ink" style={{ background: bg, fontWeight: isBase ? 700 : 400, outline: isBase ? '2px solid #ffffff' : 'none', outlineOffset: -2 }} title={v === null ? 'Unavailable: discount rate is not above terminal growth' : `${fmtPct(up, 1)} vs price $${fmt(grid.price)}`}>
+                  <td key={j} className="p-1 text-right text-ink" style={{ background: bg, fontWeight: isBase ? 700 : 400, outline: isBase ? '2px solid var(--ink)' : 'none', outlineOffset: -2 }} title={v === null ? 'Unavailable: discount rate is not above terminal growth' : `${fmtPct(up, 1)} vs price $${fmt(grid.price)}`}>
                     {v === null ? 'n/a' : `$${fmt(v, 0)}`}
                   </td>
                 );
@@ -92,7 +92,7 @@ export default function DcfScenarios({ result, ticker }) {
               <button key={k} role="tab" aria-selected={sel === k} className={`px-3 py-1.5 ${sel === k ? 'bg-s1 text-white' : 'text-ink-2 hover:bg-surface-2'}`} onClick={() => setSel(k)}>{scenarios[k].label}</button>
             ))}
           </div>
-          <span className="text-[11px] text-[#fab219]">Scenarios never change the conviction score. The score always uses Base.</span>
+          <span className="text-[11px] text-warn">Scenarios never change the conviction score. The score always uses Base.</span>
         </div>
         <p className="mt-2 text-[11px] text-muted">{deltasText}</p>
 
@@ -115,7 +115,7 @@ export default function DcfScenarios({ result, ticker }) {
                   <tr key={k} className={`border-t border-line ${sel === k ? 'bg-surface-2' : ''}`}>
                     <td className="p-1 text-ink-2">{x.label}{k === 'base' ? ' (scored)' : ''}</td>
                     <td className="p-1 text-right num text-ink">{x.available ? usd(x.value) : 'Unavailable'}<Prov p={result.provenance[k]} /></td>
-                    <td className="p-1 text-right num" style={{ color: !x.available ? C.muted : x.upside >= 0 ? '#3ecf3e' : '#e66767' }}>{x.available ? fmtPct(x.upside, 1) : '—'}</td>
+                    <td className="p-1 text-right num" style={{ color: !x.available ? C.muted : x.upside >= 0 ? 'var(--score-good)' : 'var(--score-bad)' }}>{x.available ? fmtPct(x.upside, 1) : '—'}</td>
                     <td className="p-1 text-right num">{fmtPct(x.g, 1)}{x.growthCapped ? ' (cap)' : ''}</td>
                     <td className="p-1 text-right num">{fmtPct(x.r, 1)}</td>
                     <td className="p-1 text-right num">{fmtPct(x.gT, 1)}</td>
@@ -125,7 +125,7 @@ export default function DcfScenarios({ result, ticker }) {
             </tbody>
           </table>
         </div>
-        {!s.available && <p className="mt-2 text-xs text-[#fab219]">{s.label} scenario: Unavailable. {s.reason}</p>}
+        {!s.available && <p className="mt-2 text-xs text-warn">{s.label} scenario: Unavailable. {s.reason}</p>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -148,7 +148,7 @@ export function DcfUnavailableViews({ reason }) {
   return (
     <ul className="text-xs space-y-1">
       {['Bull / base / bear scenarios', 'Tornado chart', 'Sensitivity grid'].map((v) => (
-        <li key={v} className="flex flex-wrap gap-x-2"><span className="text-ink-2">{v}:</span><span className="text-[#e66767] font-semibold">Unavailable</span><span className="text-muted">{reason}</span></li>
+        <li key={v} className="flex flex-wrap gap-x-2"><span className="text-ink-2">{v}:</span><span className="text-bad font-semibold">Unavailable</span><span className="text-muted">{reason}</span></li>
       ))}
     </ul>
   );

@@ -35,6 +35,7 @@ export const api = {
   riskfree: (asOf) => getJson(`/api/riskfree${asOf ? `?asof=${encodeURIComponent(asOf)}` : ''}`),
   // Asset-type detection and fund facts (ETF profile, dividends). Treasury tickers are answered without a provider call.
   asset: (ticker) => getJson(`/api/asset?ticker=${encodeURIComponent(ticker)}`),
+  priceHistory: (ticker) => getJson(`/api/history?ticker=${encodeURIComponent(ticker)}`),
   // FRED Treasury yields through the server (the FRED key never reaches the browser).
   fred: (series, { start, end, latest } = {}) => getJson(`/api/fred?series=${encodeURIComponent(Array.isArray(series) ? series.join(',') : series)}${start ? `&start=${start}` : ''}${end ? `&end=${end}` : ''}${latest ? '&latest=1' : ''}`),
   // Analysis log (Supabase, server-side only). Writes one row per completed analysis; reads the history.

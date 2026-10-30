@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { MODEL_ORDER, MODEL_LABELS, scoreLabel } from '../models/conviction.js';
 import { MODE_NAMES } from '../lib/reportData.js';
 import { fmt, fmtPct } from '../models/_math.js';
+import { labelText } from '../lib/labels.js';
 
 const fmtWhen = (iso) => {
   const d = new Date(iso);
@@ -31,7 +32,7 @@ function Detail({ row }) {
                   <td className="p-1 text-ink-2">{MODEL_LABELS[id]}</td>
                   <td className="p-1 text-right num">{s.subscore ?? '—'}</td>
                   <td className="p-1 text-right num">{typeof s.weight === 'number' ? `${(s.weight * 100).toFixed(1)}%` : '—'}</td>
-                  <td className="p-1">{s.status === 'ok' ? 'ok' : <><span className="text-[#fab219]">Unavailable</span> <span className="text-muted">{s.reason}</span></>}</td>
+                  <td className="p-1">{s.status === 'ok' ? 'ok' : <><span className="text-warn">Unavailable</span> <span className="text-muted">{s.reason}</span></>}</td>
                 </tr>
               );
             })}
@@ -57,13 +58,13 @@ function Detail({ row }) {
                         <td className="p-1 text-right num">{fmtPct(s.discount_rate, 1)}</td>
                         <td className="p-1 text-right num">{fmtPct(s.terminal_growth, 1)}</td>
                       </>
-                    ) : <td className="p-1 text-[#fab219]" colSpan={5}>Unavailable: {s.reason}</td>}
+                    ) : <td className="p-1 text-warn" colSpan={5}>Unavailable: {s.reason}</td>}
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        ) : <div className="text-xs"><span className="text-[#fab219] font-semibold">Unavailable</span> <span className="text-muted">{dcf.reason}</span></div>}
+        ) : <div className="text-xs"><span className="text-warn font-semibold">Unavailable</span> <span className="text-muted">{dcf.reason}</span></div>}
         <div className="text-[11px] text-muted mt-2">
           Settings used: risk-free {inputs.risk_free_rate_pct ?? 'n/a'}% ({inputs.risk_free_source || 'source not recorded'}); FCF growth override {inputs.dcf && inputs.dcf.growthOverride !== '' && inputs.dcf.growthOverride !== undefined && inputs.dcf.growthOverride !== null ? `${inputs.dcf.growthOverride}%` : 'not set'}; app version {row.app_version || 'n/a'}.
         </div>
@@ -109,7 +110,7 @@ export default function HistoryPage({ onOpenStock }) {
         </div>
 
         {state.status === 'error' && (
-          <div className="mt-4 rounded-lg border border-[#fab21955] bg-[#fab21914] p-3 text-sm"><span className="font-semibold text-[#fab219]">History unavailable.</span> <span className="text-ink-2">{state.error}</span></div>
+          <div className="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm"><span className="font-semibold text-warn">History unavailable.</span> <span className="text-ink-2">{state.error}</span></div>
         )}
         {state.status === 'ok' && rows.length === 0 && <div className="mt-4 text-sm text-muted">{state.rows.length === 0 ? 'No runs have been logged yet. Analyze a ticker on the Stock tab and it will appear here.' : 'No logged runs match that ticker.'}</div>}
 
@@ -133,7 +134,7 @@ export default function HistoryPage({ onOpenStock }) {
                       <td className="p-1 num text-ink-2 whitespace-nowrap">{fmtWhen(r.created_at)}</td>
                       <td className="p-1"><span className="font-semibold">{r.ticker}</span> <span className="text-xs text-muted">{r.company_name || ''}</span></td>
                       <td className="p-1 text-right num" title={r.price_as_of ? `Alpaca daily close, bar dated ${String(r.price_as_of).slice(0, 10)}` : 'Alpaca price was unavailable when this run was logged'}>{usd(r.price_at_run)}</td>
-                      <td className="p-1 text-right num">{num(r.score) === null ? '—' : `${num(r.score)} `}<span className="text-xs text-muted">{num(r.score) === null ? '' : scoreLabel(num(r.score))}</span></td>
+                      <td className="p-1 text-right num">{num(r.score) === null ? '—' : `${num(r.score)} `}<span className="text-xs text-muted">{num(r.score) === null ? '' : labelText(scoreLabel(num(r.score)))}</span></td>
                       <td className="p-1 text-ink-2">{MODE_NAMES[r.mode] || r.mode}</td>
                     </tr>
                     {open === r.id && (

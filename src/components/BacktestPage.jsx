@@ -6,6 +6,7 @@ import { scoreLabel } from '../models/conviction.js';
 import { fmt, fmtPct } from '../models/_math.js';
 import { ScoreReturnScatter } from './charts.jsx';
 import { MathModeBadge } from './Reasoning.jsx';
+import { labelText } from '../lib/labels.js';
 
 const DEFAULT_TICKERS = 'AAPL MSFT NVDA AMZN GOOGL META JPM XOM UNH KO INTC BA';
 const CONCURRENCY = 3;
@@ -134,15 +135,15 @@ export default function BacktestPage({ settings, onOpenStock }) {
                   {r.status === 'done' ? (
                     <>
                       <td className="p-1 text-right num">{r.score}</td>
-                      <td className="p-1" style={{ color: r.score >= 60 ? '#3ecf3e' : r.score < 40 ? '#e66767' : '#fab219' }}>{r.label}</td>
+                      <td className="p-1" style={{ color: r.score >= 60 ? 'var(--score-good)' : r.score < 40 ? 'var(--score-bad)' : 'var(--score-warn)' }}>{labelText(r.label)}</td>
                       <td className="p-1 text-right num">${fmt(r.priceThen)}</td>
                       <td className="p-1 text-right num">{fmtPct(r.forwardReturn, 1)}</td>
                       <td className="p-1 text-right num text-muted">{r.spyReturn === null ? 'n/a' : fmtPct(r.spyReturn, 1)}</td>
-                      <td className="p-1 text-right num" style={{ color: r.excess === null ? '#898781' : r.excess >= 0 ? '#3ecf3e' : '#e66767' }}>{r.excess === null ? 'n/a' : `${r.excess >= 0 ? '+' : ''}${fmtPct(r.excess, 1)}`}</td>
+                      <td className="p-1 text-right num" style={{ color: r.excess === null ? 'var(--muted)' : r.excess >= 0 ? 'var(--score-good)' : 'var(--score-bad)' }}>{r.excess === null ? 'n/a' : `${r.excess >= 0 ? '+' : ''}${fmtPct(r.excess, 1)}`}</td>
                       <td className="p-1 num text-muted">{['dcf', 'monteCarlo', 'risk', 'momentum', 'health', 'earnings'].map((id) => (r.subscores[id] ?? 'n/a')).join(' / ')}</td>
                     </>
                   ) : (
-                    <td className="p-1 text-muted" colSpan={7}>{r.status === 'loading' ? <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 border-2 border-s1 border-t-transparent rounded-full animate-spin" />analyzing…</span> : r.status === 'failed' ? <span className="text-[#e66767]">{r.error}</span> : 'queued'}</td>
+                    <td className="p-1 text-muted" colSpan={7}>{r.status === 'loading' ? <span className="inline-flex items-center gap-2"><span className="inline-block w-3 h-3 border-2 border-s1 border-t-transparent rounded-full animate-spin" />analyzing…</span> : r.status === 'failed' ? <span className="text-bad">{r.error}</span> : 'queued'}</td>
                   )}
                 </tr>
               ))}
@@ -176,7 +177,7 @@ export default function BacktestPage({ settings, onOpenStock }) {
                     <thead><tr className="text-muted"><th className="text-left font-medium">Bucket</th><th className="text-right font-medium">n</th><th className="text-right font-medium">Avg return</th><th className="text-right font-medium">Beat SPY</th></tr></thead>
                     <tbody>
                       {stats.buckets.map((b) => (
-                        <tr key={b.label} className="border-t border-line"><td className="py-1 text-ink-2">{b.label}</td><td className="py-1 text-right">{b.n}</td><td className="py-1 text-right">{b.n ? fmtPct(b.avgReturn, 1) : '—'}</td><td className="py-1 text-right">{b.n ? fmtPct(b.beatSpy, 0) : '—'}</td></tr>
+                        <tr key={b.label} className="border-t border-line"><td className="py-1 text-ink-2">{labelText(b.label)}</td><td className="py-1 text-right">{b.n}</td><td className="py-1 text-right">{b.n ? fmtPct(b.avgReturn, 1) : '—'}</td><td className="py-1 text-right">{b.n ? fmtPct(b.beatSpy, 0) : '—'}</td></tr>
                       ))}
                     </tbody>
                   </table>

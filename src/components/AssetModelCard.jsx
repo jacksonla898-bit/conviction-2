@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import ChartBlock from './ChartBlock.jsx';
-import Prov from './Prov.jsx';
+import { MetricTile, UnavailableBlock } from './ui.jsx';
+import { scoreClass } from '../lib/labels.js';
+import { provLines } from '../lib/provenance.js';
 import { fmt, fmtPct, fmtMoney } from '../models/_math.js';
 import { PriceSmaChart, DrawdownChart } from './charts.jsx';
 import { YieldCurveChart, YieldHistoryChart, DollarVolumeChart, DividendsChart } from './chartsPortfolio.jsx';
-
-function scoreColor(s) {
-  if (s === null || s === undefined) return 'bg-surface-2 text-muted';
-  if (s < 40) return 'bg-[#d03b3b22] text-[#e66767]';
-  if (s < 60) return 'bg-[#c9850022] text-[#fab219]';
-  return 'bg-[#0ca30c22] text-[#3ecf3e]';
-}
 
 function chartFor(r) {
   const c = r.chart;
@@ -65,29 +60,18 @@ export default function AssetModelCard({ result, status }) {
           <h3 className="font-semibold text-ink">{r?.name || '…'}</h3>
           {r?.available && <p className="text-xs text-muted mt-0.5">{r.scoringRule}</p>}
         </div>
-        <div className={`pill num text-base px-3 py-1 ${scoreColor(r?.available ? r.subscore : null)}`}>{r?.available ? r.subscore : status === 'loading' ? '…' : '—'}</div>
+        <div className={`pill num text-base px-3 py-1 ${scoreClass(r?.available ? r.subscore : null)}`}>{r?.available ? r.subscore : status === 'loading' ? '…' : '—'}</div>
       </header>
-      {status === 'loading' && <div className="flex items-center gap-3 text-sm text-ink-2"><span className="inline-block w-4 h-4 border-2 border-s1 border-t-transparent rounded-full animate-spin" />Loading…</div>}
+      {status === 'loading' && <div className="space-y-3" aria-busy="true"><div className="skeleton w-full" style={{ height: 200 }} /><div className="grid grid-cols-2 md:grid-cols-3 gap-3">{[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 34 }} />)}</div></div>}
       {status !== 'loading' && r && !r.available && (
-        <div className="rounded-lg border border-[#d03b3b55] bg-[#d03b3b14] p-3 text-sm">
-          <div className="font-semibold text-[#e66767]">Unavailable — excluded from the score</div>
-          <div className="text-ink-2 mt-1 break-words">{r.error}</div>
-        </div>
+        <UnavailableBlock title="Unavailable — excluded from the score" reason={r.error} />
       )}
       {status !== 'loading' && r?.available && (
         <>
-          {r.warning && <div className="rounded-lg border border-[#fab21955] bg-[#fab21914] p-2 text-xs text-[#fab219]">{r.warning}</div>}
+          {r.warning && <div className="rounded-lg border border-warn/40 bg-warn/10 p-2 text-xs text-ink-2">{r.warning}</div>}
           {chart && <ChartBlock title={chart[0]} explanation={{ what: chart[2], reading: r.keyOutput, caveat: r.note }}>{chart[1]}</ChartBlock>}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 pt-2 border-t border-line">
-            {metricRows(r).map(([label, value, prov]) => {
-              const unavailable = value === null || value === undefined || (prov && prov.status === 'unavailable');
-              return (
-                <div key={label} className="min-w-0">
-                  <div className="flex items-center text-[11px] uppercase tracking-wide text-muted"><span className="truncate">{label}</span><Prov p={prov} /></div>
-                  {unavailable ? <><div className="text-sm font-semibold text-[#fab219]">Unavailable</div><div className="text-[10px] leading-snug text-muted">{(prov && prov.reason) || 'Not provided by the current data providers.'}</div></> : <div className="num text-sm text-ink truncate">{value}</div>}
-                </div>
-              );
-            })}
+            {metricRows(r).map(([label, value, prov]) => <MetricTile key={label} label={label} value={value} prov={prov} reason={(prov && prov.reason) || 'Not provided by the current data providers.'} drawer={{ title: label, subtitle: `${r.name} · ${r.keyOutput || ''}`, prov: provLines(prov), steps: r.steps, inputs: r.inputs, scoringRule: r.scoringRule, note: r.note }} />)}
           </div>
           {r.inputs && r.inputs.length > 0 && (
             <div>

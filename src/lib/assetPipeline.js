@@ -78,7 +78,7 @@ export async function runAssetAnalysis(ticker, settings, { asOf = null, onRaw = 
         histRes.ok ? { type: `${asset.tenor}-year Treasury yield`, source: 'FRED', asOf: last?.date || null, status: 'ok', detail: `${asset.series}, ${history.length} daily observations from ${history[0]?.date}` } : { type: `${asset.tenor}-year Treasury yield`, source: 'FRED', asOf: null, status: 'unavailable', reason: histRes.error },
         curve.ok ? { type: 'Yield curve', source: 'FRED', asOf: curve.latest.DGS10?.date || null, status: 'ok', detail: `${Object.keys(curve.latest).length} tenors, latest observations` } : { type: 'Yield curve', source: 'FRED', asOf: null, status: 'unavailable', reason: curve.error },
       ],
-      detection: asset.detection, error: conviction.score === null ? 'No Treasury component could be computed.' : null,
+      detection: asset.detection, asset, error: conviction.score === null ? 'No Treasury component could be computed.' : null,
     };
   }
 
