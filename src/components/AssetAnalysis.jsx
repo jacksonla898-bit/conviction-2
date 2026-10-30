@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { explainIfStandard } from '../lib/aiGate.js';
 import ScoreHeader from './results/ScoreHeader.jsx';
 import DriversCard, { driversFromAttribution } from './results/DriversCard.jsx';
 import { ReasoningSection, ExportPdfButton, pdfName } from './results/common.jsx';
@@ -7,6 +8,7 @@ import AssetModelCard from './AssetModelCard.jsx';
 import DataSources from './DataSources.jsx';
 import Methodology from './Methodology.jsx';
 import { Tabs, SkeletonCard, EmptyState } from './ui.jsx';
+import FundFacts from './FundFacts.jsx';
 import { computeAttribution } from '../models/attribution.js';
 import { ASSET_TYPE_LABELS } from '../models/assets.js';
 import { roundDeep } from '../lib/pipeline.js';
@@ -48,7 +50,18 @@ const GROUPS = {
   treasury: [['yield', 'Yield & curve', ['yield', 'curve']], ['rates', 'Rate sensitivity', ['duration']]],
 };
 
-export default function AssetAnalysis({ analysis, loading, settings, onCopyLink, copied }) {
+function LogStatus({ logState }) {
+  if (!logState) return null;
+  return (
+    <span className="ml-auto text-xs" aria-live="polite">
+      {logState.status === 'saving' && <span className="text-muted">Saving to log…</span>}
+      {logState.status === 'saved' && <span className="text-muted" title={logState.reason || 'One row was written to the analysis log.'}>Saved to log</span>}
+      {logState.status === 'failed' && <span className="pill border border-warn/40 bg-warn/10 text-ink-2" title={logState.reason}>Run not saved to log</span>}
+    </span>
+  );
+}
+
+export default function AssetAnalysis({ analysis, loading, settings, onCopyLink, copied, logState }) {
   const a = analysis;
   const [reasoning, setReasoning] = useState({ status: 'idle', text: null, error: null, model: null });
   const [tab, setTab] = useState('overview');
@@ -61,8 +74,8 @@ export default function AssetAnalysis({ analysis, loading, settings, onCopyLink,
   const generate = async () => {
     if (settings.mode !== 'standard' || !a || a.conviction.score === null) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
-    const { requestReasoning } = await import('../lib/ai.js');
-    const res = await requestReasoning('standard', a.ticker, assetPayload(a, settings));
+    const res = await explainIfStandard(settings.mode, a.ticker, assetPayload(a, settings));
+    if (res.skipped) return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });
@@ -80,14 +93,14 @@ export default function AssetAnalysis({ analysis, loading, settings, onCopyLink,
   if (a.assetType === 'unsupported') return <EmptyState title={`Unsupported: ${a.ticker}`} text={a.error} />;
 
   const groups = GROUPS[a.assetType] || [];
-  const tabs = [{ id: 'overview', label: 'Score breakdown' }, ...groups.map(([id, label]) => ({ id, label })), { id: 'sources', label: 'Data sources' }];
+  const tabs = [{ id: 'overview', label: 'Score breakdown' }, ...groups.map(([id, label]) => ({ id, label })), ...(a.assetType === 'treasury' ? [] : [{ id: 'fund', label: 'Fund facts (SEC)' }]), { id: 'sources', label: 'Data sources' }];
   const meta = a.priceKind === 'yield' ? `${fmt(a.price, 2)}% yield · ${a.priceDate}` : a.price ? `$${a.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · close ${a.priceDate}` : null;
   const scoreInfo = { title: `${ASSET_TYPE_LABELS[a.assetType]} score`, subtitle: 'Equal-weighted average of the available components', steps: [{ label: 'Equal-weight average', formula: 'score = Σ sᵢ / n over available components', calc: `(${a.conviction.breakdown.map((b) => b.subscore).join(' + ')}) / ${a.conviction.breakdown.length}`, result: `${a.conviction.score}` }, ...(a.conviction.excluded.length ? [{ label: 'Excluded', formula: 'unavailable components are dropped and weights re-normalized', calc: a.conviction.excluded.map((e) => `${a.labels[e.id]}: ${e.reason}`).join('; '), result: '—' }] : [])] };
 
   return (
     <div className="space-y-5" ref={ref} id="asset-results">
       <ScoreHeader score={a.conviction.score} label={a.conviction.label} pending={loading} title={a.ticker} subtitle={`${a.name ? `${a.name} · ` : ''}${ASSET_TYPE_LABELS[a.assetType]}`} meta={meta} scoreInfo={a.conviction.score !== null ? scoreInfo : null}
-        actions={<><ExportPdfButton targetRef={ref} filename={pdfName(`Conviction_${a.ticker}`, settings.mode)} disabled={loading || a.conviction.score === null} /><button className="btn" onClick={onCopyLink}>{copied ? 'Link copied' : 'Copy link'}</button>{a.detection && <span className="text-xs text-muted">Classified as {ASSET_TYPE_LABELS[a.assetType]}: {a.detection.reason}.</span>}</>}
+        actions={<><ExportPdfButton targetRef={ref} filename={pdfName(`Conviction_${a.ticker}`, settings.mode)} disabled={loading || a.conviction.score === null} /><button className="btn" onClick={onCopyLink}>{copied ? 'Link copied' : 'Copy link'}</button>{a.detection && <span className="text-xs text-muted">Classified as {ASSET_TYPE_LABELS[a.assetType]}: {a.detection.reason}.</span>}<LogStatus logState={logState} /></>}
       />
       <DriversCard drivers={drivers} pending={loading} />
       <ReasoningSection mode={settings.mode} summary={summary} ai={{ state: reasoning, onGenerate: generate, canGenerate: !loading && a.conviction.score !== null }} pending={loading}
@@ -103,6 +116,7 @@ export default function AssetAnalysis({ analysis, loading, settings, onCopyLink,
           <div key={id} className="grid gap-5 lg:grid-cols-2">{ids.filter((cid) => a.order.includes(cid)).map((cid) => <AssetModelCard key={cid} result={a.results[cid]} status={loading ? 'loading' : 'done'} />)}</div>
         ))}
         {tab === 'sources' && <DataSources sources={a.sources} />}
+        {tab === 'fund' && <FundFacts fund={a.fund} assetType={a.assetType} />}
       </section>
     </div>
   );

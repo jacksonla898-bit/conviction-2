@@ -54,6 +54,7 @@ export function buildLogPayload({ ticker, companyName, mode, conviction, results
   return {
     ticker,
     companyName: companyName || null,
+    assetType: 'stock',
     mode,
     score: conviction.score,
     modelSubscores,
@@ -64,6 +65,40 @@ export function buildLogPayload({ ticker, companyName, mode, conviction, results
       risk_free_rate_pct: settings.riskFreeRate === '' || settings.riskFreeRate === null || settings.riskFreeRate === undefined ? null : Number(settings.riskFreeRate),
       risk_free_source: settings.riskFreeSource || null,
       risk_free_auto: settings.riskFreeAuto !== false,
+    },
+    appVersion: appVersion || null,
+  };
+}
+
+/** Row for an ETF or Treasury run (components instead of the six stock models; no DCF). */
+export function buildAssetLogPayload({ analysis, mode, settings, appVersion }) {
+  const a = analysis;
+  const modelSubscores = {};
+  for (const id of a.order) {
+    const r = a.results[id];
+    const b = a.conviction.breakdown.find((x) => x.id === id);
+    modelSubscores[id] = {
+      subscore: r && r.available ? r.subscore : null,
+      weight: b ? r4(b.normWeight) : 0,
+      nominal_weight: 1,
+      status: r && r.available ? 'ok' : 'unavailable',
+      reason: r && r.available ? null : (r && r.error) || 'not run',
+    };
+  }
+  return {
+    ticker: a.ticker,
+    companyName: a.name || null,
+    assetType: a.assetType,
+    mode,
+    score: a.conviction.score,
+    modelSubscores,
+    dcf: { status: 'not applicable', reason: `DCF is a stock model; ${a.assetType} runs have no DCF.` },
+    inputs: {
+      risk_free_rate_pct: settings.riskFreeRate === '' || settings.riskFreeRate === null || settings.riskFreeRate === undefined ? null : Number(settings.riskFreeRate),
+      risk_free_source: settings.riskFreeSource || null,
+      risk_free_auto: settings.riskFreeAuto !== false,
+      sec_expense: a.fund && a.fund.expense ? { status: a.fund.expense.status, filing: a.fund.expense.status === 'ok' ? `${a.fund.expense.formType} ${a.fund.expense.filingDate}` : null } : null,
+      sec_nport: a.fund && a.fund.nport ? { status: a.fund.nport.status, filing: a.fund.nport.status === 'ok' ? `${a.fund.nport.formType} ${a.fund.nport.filingDate}` : null } : null,
     },
     appVersion: appVersion || null,
   };

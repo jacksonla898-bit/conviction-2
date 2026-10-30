@@ -35,10 +35,16 @@ export const api = {
   riskfree: (asOf) => getJson(`/api/riskfree${asOf ? `?asof=${encodeURIComponent(asOf)}` : ''}`),
   // Asset-type detection and fund facts (ETF profile, dividends). Treasury tickers are answered without a provider call.
   asset: (ticker) => getJson(`/api/asset?ticker=${encodeURIComponent(ticker)}`),
+  // SEC EDGAR fund facts (expense ratio, N-PORT holdings, fund size, duration, credit split).
+  fund: (ticker) => getJson(`/api/fund?ticker=${encodeURIComponent(ticker)}`),
   priceHistory: (ticker) => getJson(`/api/history?ticker=${encodeURIComponent(ticker)}`),
   // FRED Treasury yields through the server (the FRED key never reaches the browser).
   fred: (series, { start, end, latest } = {}) => getJson(`/api/fred?series=${encodeURIComponent(Array.isArray(series) ? series.join(',') : series)}${start ? `&start=${start}` : ''}${end ? `&end=${end}` : ''}${latest ? '&latest=1' : ''}`),
   // Analysis log (Supabase, server-side only). Writes one row per completed analysis; reads the history.
   logAnalysis: (payload) => getJson('/api/analyses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   history: ({ ticker = '', order = 'desc', limit = 300 } = {}) => getJson(`/api/analyses?order=${order}&limit=${limit}${ticker ? `&ticker=${encodeURIComponent(ticker)}` : ''}`),
+  // Owner session for the private log (passcode checked on the server; HttpOnly cookie).
+  logSession: () => getJson('/api/analyses?action=session'),
+  logLogin: (passcode) => getJson('/api/analyses?action=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passcode }) }),
+  logLogout: () => getJson('/api/analyses?action=logout', { method: 'POST' }),
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { explainIfStandard } from '../lib/aiGate.js';
 import { analyzeMany, benchmarkReturns, unitPrice } from '../lib/portfolioData.js';
 import { gradePortfolio, normalizeHoldings, PILLAR_LABELS, CLASS_LABELS } from '../models/portfolioGrade.js';
 import { ASSET_TYPE_LABELS } from '../models/assets.js';
@@ -113,8 +114,8 @@ export default function GraderPage({ settings, portfolio, setPortfolio, lastGrad
   const generate = async () => {
     if (settings.mode !== 'standard' || !result || result.grade.score === null) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
-    const { requestReasoning } = await import('../lib/ai.js');
-    const res = await requestReasoning('standard', 'Portfolio', gradePayload(result.grade, result.holdings));
+    const res = await explainIfStandard(settings.mode, 'Portfolio', gradePayload(result.grade, result.holdings));
+    if (res.skipped) return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });

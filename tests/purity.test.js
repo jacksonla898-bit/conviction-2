@@ -28,21 +28,28 @@ test('the AI module is never imported statically', () => {
   for (const f of srcFiles) assert.ok(!staticImport.test(fs.readFileSync(f, 'utf8')), `${rel(f)} statically imports the AI module`);
 });
 
-test('only the Standard-mode call sites load the AI module (dynamically)', () => {
-  const users = srcFiles.filter((f) => rel(f) !== 'src/lib/ai.js' && /ai\.js/.test(fs.readFileSync(f, 'utf8'))).map(rel).sort();
-  assert.deepEqual(users, ['src/App.jsx', 'src/components/AssetAnalysis.jsx', 'src/components/GraderPage.jsx', 'src/components/OptimizerPage.jsx', 'src/components/PortfolioPage.jsx', 'src/components/StressTestPage.jsx']);
-  for (const u of users) {
-    const text = fs.readFileSync(path.join(root, u), 'utf8');
-    // Every load must sit behind a Standard-mode check, and the call must pass the literal mode.
-    assert.match(text, /import\(['"][^'"]*\/ai\.js['"]\)/);
-    assert.match(text, /requestReasoning\('standard'/);
+test('only the AI gate loads the AI module, dynamically and behind the Standard-mode check', () => {
+  const users = srcFiles.filter((f) => rel(f) !== 'src/lib/ai.js' && /['"][^'"]*\/?ai\.js['"]/.test(fs.readFileSync(f, 'utf8'))).map(rel).sort();
+  assert.deepEqual(users, ['src/lib/aiGate.js']);
+  const gate = fs.readFileSync(path.join(root, 'src/lib/aiGate.js'), 'utf8');
+  const guard = gate.indexOf("if (mode !== 'standard') return");
+  const load = gate.indexOf("import('./ai.js')");
+  assert.ok(guard > 0 && load > guard, 'the Standard-mode guard must come before the dynamic import');
+  assert.match(gate, /requestReasoning\('standard'/);
+  // Every caller passes the current mode into the gate.
+  const callers = srcFiles.filter((f) => /explainIfStandard\(/.test(fs.readFileSync(f, 'utf8')) && rel(f) !== 'src/lib/aiGate.js').map(rel).sort();
+  assert.deepEqual(callers, ['src/App.jsx', 'src/components/AssetAnalysis.jsx', 'src/components/GraderPage.jsx', 'src/components/OptimizerPage.jsx', 'src/components/PortfolioPage.jsx', 'src/components/StressTestPage.jsx']);
+  for (const c of callers) {
+    const text = fs.readFileSync(path.join(root, c), 'utf8');
+    for (const m of text.matchAll(/explainIfStandard\(([^,]+),/g)) assert.match(m[1], /^(settings\.mode|modeRef\.current)$/, `${c} must pass the live mode to the gate`);
   }
 });
 
 test('Wharton-path modules do not mention the AI module at all', () => {
   const whartonPath = ['src/lib/reportData.js', 'src/lib/tearSheet.js', 'src/components/report/TearSheet.jsx', 'src/components/Reasoning.jsx', 'src/components/Attribution.jsx', 'src/components/DcfScenarios.jsx', 'src/components/Prov.jsx', 'src/components/HistoryPage.jsx', 'src/lib/logPayload.js', 'src/lib/provenance.js', 'src/lib/api.js',
     'src/components/Methodology.jsx', 'src/components/AssetModelCard.jsx', 'src/components/chartsPortfolio.jsx', 'src/lib/assetPipeline.js', 'src/lib/portfolioData.js', 'src/models/assets.js', 'src/models/bondMath.js', 'src/models/portfolioGrade.js', 'src/models/optimizer.js',
-    'src/components/ui.jsx', 'src/components/results/ScoreHeader.jsx', 'src/components/results/DriversCard.jsx', 'src/components/results/common.jsx', 'src/components/StockResults.jsx', 'src/components/MyPortfoliosPage.jsx', 'src/components/SavePortfolioButton.jsx', 'src/components/chartsExtra.jsx', 'src/components/SettingsDrawer.jsx', 'src/pages/HomePage.jsx', 'src/pages/AnalyzePage.jsx', 'src/pages/PortfolioHub.jsx', 'src/pages/MethodologyPage.jsx', 'src/models/stressTest.js', 'src/lib/savedPortfolios.js', 'src/lib/labels.js', 'src/lib/methodologyContent.js'];
+    'src/components/ui.jsx', 'src/components/results/ScoreHeader.jsx', 'src/components/results/DriversCard.jsx', 'src/components/results/common.jsx', 'src/components/StockResults.jsx', 'src/components/MyPortfoliosPage.jsx', 'src/components/SavePortfolioButton.jsx', 'src/components/chartsExtra.jsx', 'src/components/SettingsDrawer.jsx', 'src/pages/HomePage.jsx', 'src/pages/AnalyzePage.jsx', 'src/pages/PortfolioHub.jsx', 'src/pages/MethodologyPage.jsx', 'src/models/stressTest.js', 'src/lib/savedPortfolios.js', 'src/lib/labels.js', 'src/lib/methodologyContent.js',
+    'src/components/TrackRecordPage.jsx', 'src/components/LogGate.jsx', 'src/models/trackRecord.js', 'src/components/FundFacts.jsx'];
   for (const p of whartonPath) {
     const text = fs.readFileSync(path.join(root, p), 'utf8');
     assert.ok(!/['"][^'"]*\/ai\.js['"]/.test(text), `${p} references the AI module`);

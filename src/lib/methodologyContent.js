@@ -85,7 +85,7 @@ export const SECTIONS = [
   },
   {
     id: 'equity_etf', group: 'ETFs and Treasuries', title: 'Equity ETF components (equal weights)',
-    text: ['Expense ratio and assets under management are not provided by the current data plan (Finnhub /etf/profile is paid), so those components show Unavailable and are excluded; liquidity is scored from IEX-feed dollar volume.'],
+    text: ['Expense ratio: the fund\'s latest 485BPOS prospectus filing on SEC EDGAR, XBRL element oef:NetExpensesOverAssets for the share class (oef:ExpensesOverAssets if no net figure is tagged). Fund size: net assets from the latest N-PORT filing. Each value is labelled with its filing type and date. A fund whose filings lack the field shows "unavailable (not in SEC filing)" and the component is excluded. Liquidity is scored from IEX-feed dollar volume; fund size is shown for reference.'],
     formulas: [
       { label: 'Expense ratio', formula: 'score = clamp(100·(1 − ER/1%))' },
       { label: 'Liquidity', formula: 'score = clamp(100·(log10(ADV$) − 6)/3), ADV$ = mean(close × volume) over 63 days' },
@@ -97,11 +97,13 @@ export const SECTIONS = [
   },
   {
     id: 'bond_etf', group: 'ETFs and Treasuries', title: 'Bond ETF components (equal weights)',
-    text: ['SEC 30-day yield, official effective duration and credit quality are not provided by the current data plan and show Unavailable. The yield uses trailing-12-month cash distributions (Alpaca corporate actions); duration is measured empirically against 10-year Treasury yield changes (FRED DGS10).'],
+    text: ['The yield uses trailing-12-month cash distributions (Alpaca corporate actions); the SEC 30-day yield is not a field in N-PORT or in the prospectus XBRL, so it is always "unavailable (not in SEC filing)". Duration comes from the fund\'s own N-PORT filing (Item B.3.a interest-rate risk): total DV01 divided by net assets; when a filing omits it (funds under 25% debt need not report it) the empirical duration against 10-year yield changes (FRED DGS10) is used and labelled. Credit quality is the N-PORT split of credit-spread risk between investment-grade and non-investment-grade holdings (Item B.3.b); N-PORT carries no letter ratings, so no rating-by-rating breakdown exists.'],
     formulas: [
       { label: 'Distribution yield', formula: 'score = clamp(100·Y/6%), Y = TTM distributions / price' },
-      { label: 'Duration', formula: 'score = clamp(100 − 5·D_emp), D_emp = −cov(fund returns, Δy)/var(Δy)' },
-      { label: 'Spread', formula: 'score = clamp(50 + 25·(Y − y_T)), y_T = Treasury yield at the tenor nearest D_emp' },
+      { label: 'Duration (N-PORT)', formula: 'D = Σ DV01 / net assets × 10,000; score = clamp(100 − 5·D)', note: 'DV01 summed over the 3-month, 1, 5, 10 and 30-year buckets and all currencies.' },
+      { label: 'Duration (fallback)', formula: 'D_emp = −cov(fund returns, Δy_10)/var(Δy_10) over 1 year', note: 'Used only when the filing reports no DV01.' },
+      { label: 'Credit quality', formula: 'IG share = DV01_IG / (DV01_IG + DV01_nonIG); score = clamp(100 × IG share)' },
+      { label: 'Spread', formula: 'score = clamp(50 + 25·(Y − y_T)), y_T = Treasury yield at the tenor nearest the duration' },
       { label: 'Volatility', formula: 'score = clamp(100·(15% − σ)/13%)' },
       { label: 'Max drawdown', formula: 'score = clamp(100 + 250·MDD)' },
     ],
@@ -180,9 +182,23 @@ export const SECTIONS = [
     formulas: [],
   },
   {
+    id: 'track', group: 'Analyze', title: 'Track Record',
+    text: [
+      'Every completed analysis is saved to the log with ticker, asset type, mode, score, label, app version, timestamp and the price at run time (Alpaca latest daily close; Treasuries have no traded price). The log is private: reads need the owner passcode; the public can only append valid rows (database row-level security enforces the shape).',
+      'The base date is the last completed daily close at the moment of the run (U.S. Eastern time: runs at or after 16:00 use that day\'s close, earlier runs use the previous trading day). A window whose end date has not happened yet is "pending", never a partial number. Buckets with fewer than 30 completed runs carry a "small sample, not statistically meaningful" warning.',
+    ],
+    formulas: [
+      { label: 'Forward return', formula: 'R_h = C[t0 + h] / C[t0] − 1, h = 21, 63, 126 trading days', note: 'Alpaca SIP daily closes, split-adjusted, no dividends.' },
+      { label: 'Excess return', formula: 'X_h = R_h − R_SPY,h over exactly the same two dates' },
+      { label: 'Hit rate', formula: 'share of completed runs in the bucket with X_h > 0' },
+      { label: 'Spearman ρ', formula: 'Pearson correlation of rank(score) and rank(X_h); ties get the average rank; needs n ≥ 3' },
+      { label: 'Keep-alive', formula: 'Vercel Cron, daily 09:17 UTC, one-row SELECT through the server with a server-side secret', note: 'Prevents the free database from pausing after a week idle.' },
+    ],
+  },
+  {
     id: 'sources', group: 'Data', title: 'Data sources and limitations',
     text: [
-      'Prices: Alpaca Market Data (IEX feed for analysis, SIP feed for stress-test history), split-adjusted daily closes. Fundamentals: SEC EDGAR XBRL company facts (annual filings, can be up to a year old). Earnings and insiders: Finnhub. Treasury yields, the yield curve and the risk-free rate: FRED (DGS series), with the U.S. Treasury daily curve as a fallback. ETF cash distributions: Alpaca corporate actions. Fund facts (expense ratio, AUM, SEC yield, official duration, credit quality): not available on the current plan. Individual bonds by CUSIP: no provider.',
+      'Prices: Alpaca Market Data (IEX feed for analysis, SIP feed for stress-test history), split-adjusted daily closes. Fundamentals: SEC EDGAR XBRL company facts (annual filings, can be up to a year old). Earnings and insiders: Finnhub. Treasury yields, the yield curve and the risk-free rate: FRED (DGS series), with the U.S. Treasury daily curve as a fallback. ETF cash distributions: Alpaca corporate actions. Fund facts: SEC EDGAR filings (485BPOS prospectus XBRL for the expense ratio; N-PORT for net assets, holdings, interest-rate and credit-spread risk), each labelled with filing type and date; the SEC 30-day yield and letter ratings are not in those filings and stay unavailable. Individual bonds by CUSIP: no provider. Pre-2016 price history (dot-com and 2008 stress scenarios): no free source whose terms allow display on a public site was found (Alpaca begins 2016-01-04; Tiingo\'s free tier is "Internal Use Only"; Alpha Vantage\'s free licence is "personal, non-commercial use"; Stooq blocks server requests), so those scenarios stay unavailable rather than use a proxy.',
       'Every API call runs on the server; no key reaches the browser. The analysis log stores computed values only, never AI text. Saved portfolios live only in this browser.',
       'It is not investment advice and does not predict the future. The DCF is deliberately conservative; the Monte Carlo and target simulations assume the near future resembles the recent past; the backtest exists so these weaknesses can be seen rather than hidden.',
     ],

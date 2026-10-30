@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { explainIfStandard } from '../lib/aiGate.js';
 import { analyzeMany, unitPrice } from '../lib/portfolioData.js';
 import { optimize, RISK_LEVELS, DISCLAIMER } from '../models/optimizer.js';
 import { ASSET_TYPE_LABELS } from '../models/assets.js';
@@ -98,8 +99,8 @@ export default function OptimizerPage({ settings, portfolio, setPortfolio, lastG
   const generate = async () => {
     if (settings.mode !== 'standard' || !result) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
-    const { requestReasoning } = await import('../lib/ai.js');
-    const res = await requestReasoning('standard', 'Optimizer', optimizerPayload(result));
+    const res = await explainIfStandard(settings.mode, 'Optimizer', optimizerPayload(result));
+    if (res.skipped) return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });

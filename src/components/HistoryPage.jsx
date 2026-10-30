@@ -4,6 +4,8 @@ import { MODEL_ORDER, MODEL_LABELS, scoreLabel } from '../models/conviction.js';
 import { MODE_NAMES } from '../lib/reportData.js';
 import { fmt, fmtPct } from '../models/_math.js';
 import { labelText } from '../lib/labels.js';
+import LogGate from './LogGate.jsx';
+import { COMPONENT_LABELS, ASSET_TYPE_LABELS } from '../models/assets.js';
 
 const fmtWhen = (iso) => {
   const d = new Date(iso);
@@ -25,11 +27,11 @@ function Detail({ row }) {
         <table className="w-full text-xs">
           <thead><tr className="text-muted"><th className="text-left font-medium p-1">Model</th><th className="text-right font-medium p-1">Subscore</th><th className="text-right font-medium p-1">Weight used</th><th className="text-left font-medium p-1">Status</th></tr></thead>
           <tbody>
-            {MODEL_ORDER.map((id) => {
+            {(Object.keys(subs).length ? Object.keys(subs) : MODEL_ORDER).map((id) => {
               const s = subs[id] || {};
               return (
                 <tr key={id} className="border-t border-line align-top">
-                  <td className="p-1 text-ink-2">{MODEL_LABELS[id]}</td>
+                  <td className="p-1 text-ink-2">{MODEL_LABELS[id] || COMPONENT_LABELS[id] || id}</td>
                   <td className="p-1 text-right num">{s.subscore ?? '—'}</td>
                   <td className="p-1 text-right num">{typeof s.weight === 'number' ? `${(s.weight * 100).toFixed(1)}%` : '—'}</td>
                   <td className="p-1">{s.status === 'ok' ? 'ok' : <><span className="text-warn">Unavailable</span> <span className="text-muted">{s.reason}</span></>}</td>
@@ -74,7 +76,11 @@ function Detail({ row }) {
 }
 
 /** History: past runs read from the analysis log through /api/analyses. */
-export default function HistoryPage({ onOpenStock }) {
+export default function HistoryPage(props) {
+  return <LogGate title="History">{(onLock) => <HistoryLog {...props} onLock={onLock} />}</LogGate>;
+}
+
+function HistoryLog({ onOpenStock, onLock }) {
   const [state, setState] = useState({ status: 'loading', rows: [], error: null });
   const [filter, setFilter] = useState('');
   const [order, setOrder] = useState('desc');
@@ -107,12 +113,13 @@ export default function HistoryPage({ onOpenStock }) {
           </div>
           <label className="block"><div className="text-xs text-ink-2 mb-1">Filter by ticker</div><input className="input uppercase w-36" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="e.g. NVDA" spellCheck={false} /></label>
           <button className="btn" onClick={load} disabled={state.status === 'loading'}>{state.status === 'loading' ? 'Loading…' : 'Refresh'}</button>
+          <button className="btn btn-ghost" onClick={onLock}>Lock</button>
         </div>
 
         {state.status === 'error' && (
-          <div className="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm"><span className="font-semibold text-warn">History unavailable.</span> <span className="text-ink-2">{state.error}</span></div>
+          <div className="mt-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm" role="alert"><span className="font-semibold text-ink">History unavailable.</span> <span className="text-ink-2">{state.error}</span></div>
         )}
-        {state.status === 'ok' && rows.length === 0 && <div className="mt-4 text-sm text-muted">{state.rows.length === 0 ? 'No runs have been logged yet. Analyze a ticker on the Stock tab and it will appear here.' : 'No logged runs match that ticker.'}</div>}
+        {state.status === 'ok' && rows.length === 0 && <div className="mt-4 text-sm text-muted">{state.rows.length === 0 ? 'No runs have been logged yet. Analyze a ticker on the Analysis tab and it will appear here.' : 'No logged runs match that ticker.'}</div>}
 
         {rows.length > 0 && (
           <div className="mt-4 overflow-x-auto">
@@ -121,10 +128,11 @@ export default function HistoryPage({ onOpenStock }) {
                 <tr className="text-muted text-xs">
                   <th className="p-1 text-left font-medium"><button className="hover:text-ink" onClick={() => setOrder((o) => (o === 'desc' ? 'asc' : 'desc'))} title="Sort by date">Date {order === 'desc' ? '↓' : '↑'}</button></th>
                   <th className="p-1 text-left font-medium">Ticker</th>
+                  <th className="p-1 text-left font-medium">Type</th>
                   <th className="p-1 text-right font-medium">Price at run</th>
                   <th className="p-1 text-right font-medium">Score</th>
                   <th className="p-1 text-left font-medium">Mode</th>
-                  {/* Future column: "price now vs price at run" (performance tracking is intentionally not built yet). */}
+                  <th className="p-1 text-left font-medium">Version</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,13 +141,15 @@ export default function HistoryPage({ onOpenStock }) {
                     <tr className="border-t border-line cursor-pointer hover:bg-surface-2" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id}>
                       <td className="p-1 num text-ink-2 whitespace-nowrap">{fmtWhen(r.created_at)}</td>
                       <td className="p-1"><span className="font-semibold">{r.ticker}</span> <span className="text-xs text-muted">{r.company_name || ''}</span></td>
-                      <td className="p-1 text-right num" title={r.price_as_of ? `Alpaca daily close, bar dated ${String(r.price_as_of).slice(0, 10)}` : 'Alpaca price was unavailable when this run was logged'}>{usd(r.price_at_run)}</td>
+                      <td className="p-1 text-xs text-ink-2">{ASSET_TYPE_LABELS[r.asset_type] || 'Stock'}</td>
+                      <td className="p-1 text-right num" title={r.price_as_of ? `Alpaca daily close, bar dated ${String(r.price_as_of).slice(0, 10)}` : r.asset_type === 'treasury' ? 'Treasury yields have no traded price' : 'Alpaca price was unavailable when this run was logged'}>{usd(r.price_at_run)}</td>
                       <td className="p-1 text-right num">{num(r.score) === null ? '—' : `${num(r.score)} `}<span className="text-xs text-muted">{num(r.score) === null ? '' : labelText(scoreLabel(num(r.score)))}</span></td>
                       <td className="p-1 text-ink-2">{MODE_NAMES[r.mode] || r.mode}</td>
+                      <td className="p-1 text-xs text-muted num">{r.app_version || '—'}</td>
                     </tr>
                     {open === r.id && (
                       <tr>
-                        <td colSpan={5} className="p-1">
+                        <td colSpan={7} className="p-1">
                           <Detail row={r} />
                           <button className="mt-2 text-xs text-s1 hover:underline" onClick={() => onOpenStock(r.ticker)}>Run {r.ticker} again now →</button>
                         </td>

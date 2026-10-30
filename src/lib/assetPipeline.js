@@ -83,29 +83,35 @@ export async function runAssetAnalysis(ticker, settings, { asOf = null, onRaw = 
   }
 
   // Equity or bond ETF
-  const [pricesRes, curve] = await Promise.all([api.prices(sym, asOf), asset.assetType === 'bond_etf' ? fetchCurve() : Promise.resolve(null)]);
+  // SEC fund facts (expense ratio, fund size, holdings, N-PORT duration and credit split). Skipped for as-of runs:
+  // the latest filing post-dates the as-of date, and using it would leak later information into a past score.
+  const [pricesRes, curve, fundRes] = await Promise.all([api.prices(sym, asOf), asset.assetType === 'bond_etf' ? fetchCurve() : Promise.resolve(null), asOf ? Promise.resolve(null) : api.fund(sym)]);
+  const asOfReason = `unavailable (as-of analysis: SEC filings made after ${asOf} are not used)`;
+  const fund = asOf ? { nport: { status: 'unavailable', reason: asOfReason }, expense: { status: 'unavailable', reason: asOfReason }, secYield: { status: 'unavailable', reason: asOfReason } } : fundRes && fundRes.ok ? fundRes.data : { nport: { status: 'unavailable', reason: `SEC EDGAR lookup failed: ${fundRes ? fundRes.error : 'no response'}` }, expense: { status: 'unavailable', reason: `SEC EDGAR lookup failed: ${fundRes ? fundRes.error : 'no response'}` }, secYield: { status: 'unavailable', reason: 'SEC EDGAR lookup failed' } };
   const bars = pricesRes.ok ? pricesRes.data.stock : null;
   const order = orderFor(asset.assetType);
   let results;
   if (!bars) {
     results = Object.fromEntries(order.map((id) => [id, { id, name: COMPONENT_LABELS[id], available: false, error: `Price data failed: ${pricesRes.error}` }]));
   } else if (asset.assetType === 'equity_etf') {
-    results = runEquityEtf({ asset, bars }, settings);
+    results = runEquityEtf({ asset, bars, fund }, settings);
   } else {
-    results = runBondEtf({ asset, bars, curve: curve && curve.ok ? curve : null }, settings);
+    results = runBondEtf({ asset, bars, curve: curve && curve.ok ? curve : null, fund }, settings);
   }
   const conviction = computeConviction(results, equalWeights(order), order);
   const last = bars ? bars[bars.length - 1] : null;
   const sources = [
     bars ? { type: 'Prices (fund and SPY)', source: 'Alpaca', asOf: last.date, status: 'ok', detail: `Daily bars, IEX feed, split-adjusted; ${bars.length} bars from ${bars[0].date}` } : { type: 'Prices (fund and SPY)', source: 'Alpaca', asOf: null, status: 'unavailable', reason: pricesRes.error },
-    { type: 'Fund facts (expense ratio, AUM, credit quality)', source: 'Finnhub', asOf: null, status: 'unavailable', reason: asset.etfProfile?.reason || 'Not provided by the current data providers.' },
+    fund.expense && fund.expense.status === 'ok' ? { type: 'Expense ratio', source: 'SEC EDGAR', asOf: fund.expense.filingDate, status: 'ok', detail: `${fund.expense.formType} filed ${fund.expense.filingDate}, accession ${fund.expense.accession}, ${fund.expense.element}` } : { type: 'Expense ratio', source: 'SEC EDGAR', asOf: null, status: 'unavailable', reason: fund.expense ? fund.expense.reason : 'not looked up' },
+    fund.nport && fund.nport.status === 'ok' ? { type: 'Fund size, holdings, duration, credit split', source: 'SEC EDGAR', asOf: fund.nport.filingDate, status: 'ok', detail: `${fund.nport.formType} filed ${fund.nport.filingDate} (period ${fund.nport.reportDate}), accession ${fund.nport.accession}, ${fund.nport.holdingsCount} holdings` } : { type: 'Fund size, holdings, duration, credit split', source: 'SEC EDGAR', asOf: null, status: 'unavailable', reason: fund.nport ? fund.nport.reason : 'not looked up' },
+    { type: 'SEC 30-day yield', source: 'SEC EDGAR', asOf: null, status: 'unavailable', reason: fund.secYield ? fund.secYield.reason : 'unavailable (not in SEC filing)' },
   ];
   if (asset.dividends) sources.push(asset.dividends.status === 'ok' ? { type: 'Cash distributions (12 months)', source: 'Alpaca', asOf: asset.dividends.to, status: 'ok', detail: `${asset.dividends.count} dividends from ${asset.dividends.from}` } : { type: 'Cash distributions (12 months)', source: 'Alpaca', asOf: null, status: 'unavailable', reason: asset.dividends.reason });
   if (curve) sources.push(curve.ok ? { type: 'Treasury yields', source: 'FRED', asOf: curve.latest.DGS10?.date || null, status: 'ok', detail: 'Latest curve plus 10-year daily history' } : { type: 'Treasury yields', source: 'FRED', asOf: null, status: 'unavailable', reason: curve.error });
   return {
     ticker: sym, assetType: asset.assetType, name: asset.name, order, labels: COMPONENT_LABELS, results, conviction,
     price: last ? last.close : null, priceDate: last ? last.date : null, bars, spyBars: pricesRes.ok ? pricesRes.data.spy : null,
-    dailyReturns: bars ? simpleReturns(bars) : [], sources, detection: asset.detection, asset,
+    dailyReturns: bars ? simpleReturns(bars) : [], sources, detection: asset.detection, asset, fund,
     error: conviction.score === null ? (bars ? 'No component could be computed.' : `Price data failed: ${pricesRes.error}`) : null,
   };
 }

@@ -7,7 +7,7 @@ Stock, ETF, Treasury and portfolio analysis with every number shown. Six hand-wr
 | Page | What is there |
 |---|---|
 | Home | One search box (stock, ETF, bond ETF or Treasury), "Build a portfolio", recently analyzed tickers. |
-| Analyze | Tabs: **Analysis** (single-asset results; optional as-of date for point-in-time scoring, deep links `/?t=NVDA&asof=2025-01-15`), **Compare** (two tickers side by side), **Backtest** (score many tickers as of a past date vs what happened next), **History** (the analysis log). |
+| Analyze | Tabs: **Analysis** (single-asset results; optional as-of date for point-in-time scoring, deep links `/?t=NVDA&asof=2025-01-15`), **Compare** (two tickers side by side), **Backtest** (score many tickers as of a past date vs what happened next), **History** (the analysis log, owner only) and **Track Record** (forward and excess returns of every logged score, owner only). |
 | Portfolio | Tabs: **Grade**, **Optimize**, **Stress Test**, **My Portfolios**. Holdings carry over between the first three; the thesis-and-target analysis lives under Grade → Details → "Thesis & target". |
 | Methodology | Every formula, weight, scenario date and data source, searchable. |
 
@@ -35,6 +35,8 @@ npm run dev                  # http://localhost:5173
 | `SEC_USER_AGENT` | No signup. SEC requires a descriptive User-Agent with a contact email, e.g. `Conviction2 you@example.com` | `api/fundamentals.js` |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | supabase.com → your project → Project Settings (see "Analysis log" below). Server-side only. | `api/analyses.js` |
 | `FRED_API_KEY` | fred.stlouisfed.org → My Account → API Keys (free) | `api/fred.js` (Treasury yields, allow-listed series only), `api/riskfree.js` |
+| `LOG_PASSCODE` | Choose it (8+ characters). The owner passcode for History and Track Record. | `api/analyses.js` (checked server-side; sets an HttpOnly session cookie) |
+| `CRON_SECRET` | Any long random string; Vercel sends it as a bearer token with the daily keep-alive. | `api/analyses.js` (cron ping) |
 
 Nothing is read from a `VITE_` variable; the browser only ever talks to `/api/*`. `node scripts/push-env-to-vercel.mjs [NAMES…]` copies values from `.env.local` to Vercel (Production and Preview) without printing them.
 
@@ -45,14 +47,15 @@ The risk-free rate is fetched automatically: FRED series `DGS3MO` (3-month const
 1. Push this folder to a GitHub repository (or use `vercel` CLI with `vercel --prod`).
 2. On vercel.com → "Add New Project" → import the repo. Framework preset: **Vite** (auto-detected). Build command `npm run build`, output `dist` (defaults).
 3. Project → Settings → Environment Variables → add the variables above for Production (and Preview if you want preview deployments to work), or run `node scripts/push-env-to-vercel.mjs`.
-4. Deploy. The ten files in `/api` become ten serverless functions (Hobby limit is 12).
+4. Deploy. The eleven files in `/api` become eleven serverless functions (Hobby limit is 12). `vercel.json` also schedules a daily cron (09:17 UTC) that pings the log so the free Supabase project never pauses for inactivity.
 5. After changing an environment variable, redeploy (Deployments → ⋯ → Redeploy) so the functions pick it up.
 
 ## Project layout
 
 ```
-api/            Vercel serverless functions (prices, fundamentals, earnings, insiders, riskfree, reason, analyses, fred, asset, history)
-api/_lib/       shared helpers (not deployed as functions): http retry, Alpaca bars, asset-class detection
+api/            Vercel serverless functions (prices, fundamentals, earnings, insiders, riskfree, reason, analyses, fred, asset, history, fund)
+api/_lib/       shared helpers (not deployed as functions): http retry, Alpaca bars, asset-class detection, owner session (HMAC cookie)
+supabase/       schema.sql plus migrations/ (row-level security for the log: anon INSERT-only with a shape check; no anon SELECT/UPDATE/DELETE)
 src/models/     one file per model, formulas in comments, no finance/stats libraries
                 assets.js (ETF/Treasury components), bondMath.js, portfolioGrade.js, optimizer.js, stressTest.js, portfolio.js (thesis)
 src/lib/        pipeline (fetch → run models), assetPipeline, portfolioData, savedPortfolios (localStorage), labels (plain-English names), methodologyContent, API client, PDF export
@@ -66,11 +69,12 @@ src/components/ StockResults, AssetAnalysis, GraderPage, OptimizerPage, StressTe
 - **DCF scenarios** (Details → Valuation): bull / base / bear toggle with fixed, on-screen deltas (`DCF_SCENARIO_CONFIG` in `src/models/dcfScenarios.js`), a tornado chart and a 5 × 5 growth × discount-rate grid. The score always uses Base.
 - **Provenance**: every number has an "i" that opens the formula drawer with its source (SEC EDGAR, Finnhub, Alpaca, FRED, U.S. Treasury, User setting, or Computed with its inputs) and as-of date. Anything that cannot be computed shows "Unavailable" with the reason. Nothing is estimated (`src/lib/provenance.js`).
 - **Export PDF**: stocks get the two-page US Letter tear sheet (`src/lib/reportData.js`, `src/lib/tearSheet.js`, `src/components/report/TearSheet.jsx`); every other results page is captured as it appears. File names `Conviction_{TICKER|Portfolio|Optimizer|StressTest}_{YYYY-MM-DD}_{Standard|Wharton}.pdf`.
-- **History**: every completed stock analysis is written to the Supabase log and listed under Analyze → History.
+- **History and Track Record** (owner only, passcode): every completed stock, ETF and Treasury analysis is written to the Supabase log with ticker, asset type, mode, score, label, app version, timestamp and the Alpaca close at run time. Track Record computes each run's 1, 3 and 6-month forward return and excess return vs SPY over the same dates (pending until the window ends), average and hit rate by label, Spearman rank correlation with n, a score vs 3-month excess scatter and a per-run table; any bucket under 30 runs is flagged as a small sample.
+- **Fund facts from SEC EDGAR** (`api/fund.js`): expense ratio from the prospectus XBRL, net assets and holdings from N-PORT, and for bond funds duration (DV01 / net assets) and the investment-grade share of credit-spread risk, each labelled with its filing; fields a filing lacks show "unavailable (not in SEC filing)".
 
 ## Wharton mode never touches the AI
 
-- The AI client lives in `src/lib/ai.js` and is only ever loaded with a dynamic `import()` from Standard-mode code; in Wharton mode the file is not even downloaded.
+- The AI client lives in `src/lib/ai.js` and is loaded only by `src/lib/aiGate.js`, with a dynamic `import()` placed after the Standard-mode check; in Wharton mode the file is not even downloaded. `tests/wharton-network.test.js` records every fetch while calling the gate in Wharton mode for every explanation kind and asserts that none happened.
 - `requestReasoning()` throws unless called with `'standard'`; `api/reason.js` rejects any request whose mode is not `standard` with HTTP 403.
 - Switching to Wharton discards any AI text held in memory, and a Wharton report is built without reading the AI text at all; the exporter refuses to write a Wharton PDF that contains an AI section.
 - `tests/purity.test.js` enforces all of this and lists every file on the Wharton path.
@@ -90,7 +94,7 @@ The key is used only inside `api/analyses.js`. The table has row-level security 
 npm test
 ```
 
-49 unit tests: attribution sums (including 2,000 random cases with outages), DCF scenarios, Wharton purity, the Portfolio Grader, bond math, the Optimizer, the stress test (60/40 equals its benchmark, coverage and exclusion rules, recovery time, TLT vs SHY rate shock, beta window) and backup-file validation.
+57 unit tests: attribution sums (including 2,000 random cases with outages), DCF scenarios, Wharton purity, the Portfolio Grader, bond math, the Optimizer, the stress test (60/40 equals its benchmark, coverage and exclusion rules, recovery time, TLT vs SHY rate shock, beta window) backup-file validation, the Track Record (base-date rule, pending windows, excess vs SPY, Spearman, small-sample flags) and the Wharton no-network proof.
 
 ## Portfolio
 

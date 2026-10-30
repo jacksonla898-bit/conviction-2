@@ -2,6 +2,7 @@ import React from 'react';
 import ComparePage from '../components/ComparePage.jsx';
 import BacktestPage from '../components/BacktestPage.jsx';
 import HistoryPage from '../components/HistoryPage.jsx';
+import TrackRecordPage from '../components/TrackRecordPage.jsx';
 import { Tabs, EmptyState } from '../components/ui.jsx';
 
 export const ANALYZE_TABS = [
@@ -9,9 +10,10 @@ export const ANALYZE_TABS = [
   { id: 'compare', label: 'Compare' },
   { id: 'backtest', label: 'Backtest' },
   { id: 'history', label: 'History' },
+  { id: 'track', label: 'Track Record' },
 ];
 
-/** Analyze: single-asset results, with Compare, Backtest and History as labelled tabs. */
+/** Analyze: single-asset results, with Compare, Backtest, History and Track Record as labelled tabs. */
 export default function AnalyzePage({ tab, onTab, input, setInput, asOfInput, setAsOfInput, onSubmit, fetching, hasResult, settings, onOpenStock, children }) {
   return (
     <div className="space-y-5">
@@ -36,6 +38,7 @@ export default function AnalyzePage({ tab, onTab, input, setInput, asOfInput, se
       {tab === 'compare' && <ComparePage settings={settings} onOpenStock={onOpenStock} />}
       {tab === 'backtest' && <BacktestPage settings={settings} onOpenStock={onOpenStock} />}
       {tab === 'history' && <HistoryPage onOpenStock={onOpenStock} />}
+      {tab === 'track' && <TrackRecordPage settings={settings} onOpenStock={onOpenStock} />}
     </div>
   );
 }

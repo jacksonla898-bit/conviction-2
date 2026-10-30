@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { explainIfStandard } from './lib/aiGate.js';
 import { Analytics } from '@vercel/analytics/react';
 import HomePage from './pages/HomePage.jsx';
 import AnalyzePage from './pages/AnalyzePage.jsx';
@@ -19,7 +20,7 @@ import { computeAttribution } from './models/attribution.js';
 import { loadSettings, saveSettings, loadHistory, pushHistory, clearHistory } from './lib/settings.js';
 import { loadJson, saveJson } from './lib/storage.js';
 import { overallConclusion } from './lib/plainEnglish.js';
-import { buildLogPayload } from './lib/logPayload.js';
+import { buildLogPayload, buildAssetLogPayload } from './lib/logPayload.js';
 import { buildReportData } from './lib/reportData.js';
 import { SRC, fetched, computed } from './lib/provenance.js';
 import { api } from './lib/api.js';
@@ -29,7 +30,7 @@ import { MATH_MODE_LABEL, WHARTON_BADGE, REPO_URL, APP_VERSION } from './config.
 const EMPTY_CONVICTION = { score: null, label: 'n/a', breakdown: [], excluded: [], included: [] };
 const IDLE_REASONING = { status: 'idle', text: null, error: null, model: null };
 const NAV = [['home', 'Home'], ['analyze', 'Analyze'], ['portfolio', 'Portfolio'], ['methodology', 'Methodology']];
-const ANALYZE_TABS = ['analysis', 'compare', 'backtest', 'history'];
+const ANALYZE_TABS = ['analysis', 'compare', 'backtest', 'history', 'track'];
 const PORTFOLIO_TABS = ['grade', 'optimize', 'stress', 'saved'];
 const PORTFOLIO_STATE_KEY = 'conviction2.portfolioHoldings.v2';
 const DEFAULT_PORTFOLIO = { holdings: [{ ticker: 'SPY', amount: '60' }, { ticker: 'AGG', amount: '40' }, { ticker: '', amount: '' }], mode: 'percent', name: '', activeId: null };
@@ -181,6 +182,21 @@ export default function App() {
     });
   }, [complete, asOf, conviction, ticker, companyName, results, effectiveSettings]);
 
+  // ETF and Treasury runs are logged too (current-date runs with a score), once per run.
+  useEffect(() => {
+    if (!assetRun || assetRun.status !== 'done' || asOf || loggedFor.current === runId.current) return;
+    const a = assetRun.analysis;
+    if (!a || a.assetType === 'unsupported' || a.conviction.score === null) return;
+    const key = runId.current;
+    loggedFor.current = key;
+    setLogState({ status: 'saving', reason: null });
+    api.logAnalysis(buildAssetLogPayload({ analysis: a, mode: modeRef.current, settings: effectiveSettings, appVersion: APP_VERSION })).then((res) => {
+      if (runId.current !== key) return;
+      if (res.ok && res.data && res.data.saved) setLogState({ status: 'saved', reason: res.data.price_note || null });
+      else setLogState({ status: 'failed', reason: res.error || 'The log did not confirm the write.' });
+    });
+  }, [assetRun, asOf, effectiveSettings]);
+
   const analyze = useCallback(async (sym, asOfDate = null) => {
     const t = String(sym || '').trim().toUpperCase();
     if (!/^[A-Z0-9.\-]{1,10}$/.test(t)) return;
@@ -235,8 +251,8 @@ export default function App() {
     const myRun = runId.current;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
     const payload = buildReasoningPayload(ticker, results, conviction, effectiveSettings);
-    const { requestReasoning } = await import('./lib/ai.js');
-    const res = await requestReasoning('standard', ticker, payload);
+    const res = await explainIfStandard(modeRef.current, ticker, payload);
+    if (res.skipped) return;
     if (runId.current !== myRun || modeRef.current !== 'standard') return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
@@ -343,7 +359,7 @@ export default function App() {
 
           {page === 'analyze' && (
             <AnalyzePage tab={analyzeTab} onTab={(t) => go('analyze', t)} input={input} setInput={setInput} asOfInput={asOfInput} setAsOfInput={setAsOfInput} onSubmit={analyze} fetching={fetching} hasResult={Boolean(ticker)} settings={effectiveSettings} onOpenStock={openStock}>
-              {ticker && assetRun && <AssetAnalysis analysis={assetRun.analysis} loading={assetRun.status === 'loading'} settings={effectiveSettings} onCopyLink={copyLink} copied={copied} />}
+              {ticker && assetRun && <AssetAnalysis analysis={assetRun.analysis} loading={assetRun.status === 'loading'} settings={effectiveSettings} onCopyLink={copyLink} copied={copied} logState={logState} />}
               {ticker && !assetRun && (
                 <StockResults
                   ticker={ticker} companyName={companyName} price={price} priceDate={priceDate} conviction={conviction} attribution={attribution} results={results} raw={raw}

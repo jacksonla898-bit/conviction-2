@@ -5,5 +5,11 @@
     "api/*.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/analyses",
+      "schedule": "17 9 * * *"
+    }
+  ]
 }

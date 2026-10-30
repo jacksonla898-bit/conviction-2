@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { explainIfStandard } from '../lib/aiGate.js';
 import { analyzePortfolio, buildPortfolioPayload } from '../lib/portfolioPipeline.js';
 import { loadPortfolioDraft, savePortfolioDraft, loadPortfolios, savePortfolioEntry, deletePortfolioEntry, DEFAULT_PORTFOLIO } from '../lib/settings.js';
 import { portfolioConclusion, portfolioChartExplanations } from '../lib/plainEnglishPortfolio.js';
@@ -401,9 +402,8 @@ export default function PortfolioPage({ settings, onOpenStock, embedded = false,
     if (settings.mode !== 'standard' || !analysis || analysis.score.score === null) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
     const payload = buildPortfolioPayload(def, analysis, settings);
-    // The AI module is loaded only here, and only in Standard mode.
-    const { requestReasoning } = await import('../lib/ai.js');
-    const res = await requestReasoning('standard', def.name || 'Untitled portfolio', payload);
+        const res = await explainIfStandard(settings.mode, def.name || 'Untitled portfolio', payload);
+    if (res.skipped) return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });

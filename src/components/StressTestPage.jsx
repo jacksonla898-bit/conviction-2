@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { explainIfStandard } from '../lib/aiGate.js';
 import { api } from '../lib/api.js';
 import { analyzeMany, unitPrice } from '../lib/portfolioData.js';
 import { normalizeHoldings } from '../models/portfolioGrade.js';
@@ -110,7 +111,7 @@ export default function StressTestPage({ settings, portfolio, lastGrade, onOpenS
         const b = betaVsSpy(a.dailyReturns, spyReturns);
         const out = { ...base, series, seriesSource: series ? hr.data.source : null, seriesError: series ? null : hr.error };
         if (a.assetType === 'stock' || a.assetType === 'equity_etf') { out.beta = b ? b.beta : null; out.betaDays = b ? b.days : null; out.betaReason = b ? null : 'fewer than 60 common days with SPY'; out.durationReason = 'equity: duration is not applied'; }
-        else { const d = a.results.duration && a.results.duration.available ? a.results.duration.metrics.empiricalDuration : null; out.duration = d; out.durationKind = 'empirical vs 10-year yield'; out.durationReason = d === null ? (a.results.duration ? a.results.duration.error : 'duration unavailable') : null; out.betaReason = 'bond ETF: market beta is not applied'; }
+        else { const dm = a.results.duration && a.results.duration.available ? a.results.duration.metrics : null; const d = dm ? (dm.duration ?? dm.empiricalDuration ?? null) : null; out.duration = d; out.durationKind = dm && dm.durationSource === 'nport' ? 'N-PORT DV01 / net assets' : 'empirical vs 10-year yield'; out.durationReason = d === null ? (a.results.duration ? a.results.duration.error : 'duration unavailable') : null; out.betaReason = 'bond ETF: market beta is not applied'; }
         return out;
       }));
       setStage('Replaying scenarios…');
@@ -130,8 +131,8 @@ export default function StressTestPage({ settings, portfolio, lastGrade, onOpenS
   const generate = async () => {
     if (settings.mode !== 'standard' || !result) return;
     setReasoning({ status: 'loading', text: null, error: null, model: null });
-    const { requestReasoning } = await import('../lib/ai.js');
-    const res = await requestReasoning('standard', 'Stress test', stressPayload(result));
+    const res = await explainIfStandard(settings.mode, 'Stress test', stressPayload(result));
+    if (res.skipped) return;
     if (!res.ok) setReasoning({ status: 'error', text: null, error: res.error, model: null });
     else if (!res.data.text) setReasoning({ status: 'error', text: null, error: res.data.error || 'Empty response.', model: res.data.model });
     else setReasoning({ status: 'done', text: res.data.text, error: null, model: res.data.model });
