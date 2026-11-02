@@ -89,6 +89,7 @@ export default function App() {
   const [assetRun, setAssetRun] = useState(null);
   const [portfolio, setPortfolioState] = useState(() => ({ ...DEFAULT_PORTFOLIO, ...(loadJson(PORTFOLIO_STATE_KEY, null) || {}) }));
   const [lastGrade, setLastGrade] = useState(null); // { holdings (normalized), analyses, grade, at } shared by Optimize and Stress Test
+  const [lastStress, setLastStress] = useState(null); // last stress-test result { scenarios, shocks, key }, read by the Grade tab's thesis critic
   const [savedVersion, setSavedVersion] = useState(0); // bumps when the saved list changes
   const esRef = useRef(null);
   const mcCache = useRef({});
@@ -372,9 +373,9 @@ export default function App() {
 
           {page === 'portfolio' && (
             <PortfolioHub tab={portfolioTab} onTab={(t) => go('portfolio', t)} holdingsSummary={holdingsSummary}>
-              {portfolioTab === 'grade' && <GraderPage settings={effectiveSettings} portfolio={portfolio} setPortfolio={setPortfolio} lastGrade={lastGrade} onGraded={onGraded} onOpenStock={openStock} onGoTab={(t) => go('portfolio', t)} onSave={saveCurrent} />}
+              {portfolioTab === 'grade' && <GraderPage settings={effectiveSettings} portfolio={portfolio} setPortfolio={setPortfolio} lastGrade={lastGrade} lastStress={lastStress} onGraded={onGraded} onOpenStock={openStock} onGoTab={(t) => go('portfolio', t)} onSave={saveCurrent} />}
               {portfolioTab === 'optimize' && <OptimizerPage settings={effectiveSettings} portfolio={portfolio} setPortfolio={setPortfolio} lastGrade={lastGrade} onOpenStock={openStock} onGoTab={(t) => go('portfolio', t)} onSave={saveCurrent} />}
-              {portfolioTab === 'stress' && <StressTestPage settings={effectiveSettings} portfolio={portfolio} setPortfolio={setPortfolio} lastGrade={lastGrade} onOpenStock={openStock} onGoTab={(t) => go('portfolio', t)} onSave={saveCurrent} />}
+              {portfolioTab === 'stress' && <StressTestPage settings={effectiveSettings} portfolio={portfolio} setPortfolio={setPortfolio} lastGrade={lastGrade} onOpenStock={openStock} onGoTab={(t) => go('portfolio', t)} onSave={saveCurrent} onTested={setLastStress} />}
               {portfolioTab === 'saved' && <MyPortfoliosPage version={savedVersion} activeId={portfolio.activeId} onOpen={openSaved} onChanged={() => setSavedVersion((v) => v + 1)} onCleared={(id) => { if (portfolio.activeId === id) setPortfolio({ activeId: null, name: '' }); }} />}
             </PortfolioHub>
           )}

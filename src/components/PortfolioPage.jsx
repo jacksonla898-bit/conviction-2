@@ -11,6 +11,7 @@ import { StandardReasoning, MathModeBadge } from './Reasoning.jsx';
 import { exportElementToPdf } from '../lib/exportPdf.js';
 import { labelText, labelColor, scoreClass } from '../lib/labels.js';
 import { Unavailable, UnavailableBlock, SkeletonCard, ErrorState } from './ui.jsx';
+import { useThesisCritic, ThesisCriticButton, ThesisCriticCard } from './ThesisCritic.jsx';
 
 const PART_COLORS = { conviction: 'var(--chart-1)', target: 'var(--chart-3)', risk: 'var(--chart-2)' };
 const SHORT = { dcf: 'DCF', monteCarlo: 'MC', risk: 'Risk', momentum: 'Mom', health: 'Health', earnings: 'Earn' };
@@ -38,9 +39,9 @@ function ChartBlock({ title, explanation, children }) {
   );
 }
 
-function Metric({ label, value }) {
+function Metric({ label, value, metricKey }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" data-metric={metricKey || undefined}>
       <div className="text-[11px] uppercase tracking-wide text-muted truncate">{label}</div>
       <div className="num text-sm text-ink truncate">{value}</div>
     </div>
@@ -48,7 +49,7 @@ function Metric({ label, value }) {
 }
 
 /* ---------------- Form ---------------- */
-function PortfolioForm({ def, onChange, onRun, running, embedded }) {
+function PortfolioForm({ def, onChange, onRun, running, embedded, belowThesis }) {
   const set = (patch) => onChange({ ...def, ...patch });
   const setHolding = (i, patch) => set({ holdings: def.holdings.map((h, k) => (k === i ? { ...h, ...patch } : h)) });
   const weights = normalizeWeights(def.holdings);
@@ -107,8 +108,9 @@ function PortfolioForm({ def, onChange, onRun, running, embedded }) {
 
       <label className="block">
         <div className="text-xs text-ink-2 mb-1">Thesis (your reasoning, in your words)</div>
-        <textarea className="input min-h-[80px] font-sans" placeholder="e.g. Data-center spending stays strong through year end, so chip and power names outrun the market." value={def.thesis} onChange={(e) => set({ thesis: e.target.value })} />
+        <textarea className="input min-h-[80px] font-sans" placeholder="e.g. Data-center spending stays strong through year end, so chip and power names outrun the market." value={def.thesis} onChange={(e) => set({ thesis: e.target.value })} maxLength={2000} />
       </label>
+      {belowThesis}
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" className="btn btn-primary" disabled={running || valid === 0}>{running ? 'Analyzing…' : `Analyze ${valid || ''} holding${valid === 1 ? '' : 's'}`}</button>
@@ -144,7 +146,7 @@ function PortfolioScoreCard({ def, analysis }) {
       <section className="card p-5 md:p-6" id="portfolio-score">
         <div className="flex flex-col md:flex-row md:items-center gap-5">
           <div className="flex items-baseline gap-4">
-            <div className="num text-6xl md:text-7xl font-bold leading-none" style={{ color: labelColor(score.label) }}>{score.score === null ? '—' : score.score}</div>
+            <div className="num text-6xl md:text-7xl font-bold leading-none" style={{ color: labelColor(score.label) }} data-metric="thesis.score">{score.score === null ? '—' : score.score}</div>
             <div>
               <div className="text-lg font-semibold" style={{ color: labelColor(score.label) }}>{score.score === null ? 'No score' : `${labelText(score.label)} conviction`}</div>
               <div className="text-xs text-muted">0–39 Weak · 40–59 Neutral · 60–79 Strong · 80–100 Very Strong</div>
@@ -202,18 +204,18 @@ function HoldingsTable({ holdings, onOpenStock }) {
           </thead>
           <tbody>
             {holdings.map((h) => (
-              <tr key={h.ticker} className="border-t border-line">
+              <tr key={h.ticker} className="border-t border-line" id={`holding-${h.ticker}`}>
                 <td className="p-1">
                   <button className="text-s1 hover:underline font-semibold" onClick={() => onOpenStock(h.ticker)} title="Open full single-stock analysis">{h.ticker}</button>
                   {h.companyName && <div className="text-muted truncate max-w-[160px]">{h.companyName}</div>}
                   {h.status === 'failed' && <div className="text-bad">{h.error}</div>}
                 </td>
-                <td className="p-1 text-right num">{fmtPct(h.weight)}</td>
+                <td className="p-1 text-right num" data-metric={`${h.ticker}.weight`}>{fmtPct(h.weight)}</td>
                 <td className="p-1 text-right num">{h.price ? `$${fmt(h.price)}` : '—'}</td>
-                <td className="p-1 text-right"><span className={`pill num ${scoreClass(h.conviction?.score ?? null)}`}>{h.conviction?.score ?? '—'}</span></td>
+                <td className="p-1 text-right" data-metric={`${h.ticker}.score`}><span className={`pill num ${scoreClass(h.conviction?.score ?? null)}`}>{h.conviction?.score ?? '—'}</span></td>
                 {MODEL_ORDER.map((id) => {
                   const r = h.results?.[id];
-                  return <td key={id} className="p-1 text-right num" style={{ color: r?.available ? (r.subscore >= 60 ? 'var(--score-good)' : r.subscore >= 40 ? 'var(--score-warn)' : 'var(--score-bad)') : 'var(--muted)' }}>{r?.available ? r.subscore : <Unavailable reason={r ? r.error : 'not run'} />}</td>;
+                  return <td key={id} className="p-1 text-right num" data-metric={`${h.ticker}.subscore.${id}`} style={{ color: r?.available ? (r.subscore >= 60 ? 'var(--score-good)' : r.subscore >= 40 ? 'var(--score-warn)' : 'var(--score-bad)') : 'var(--muted)' }}>{r?.available ? r.subscore : <Unavailable reason={r ? r.error : 'not run'} />}</td>;
                 })}
               </tr>
             ))}
@@ -235,7 +237,7 @@ function PartCard({ part, def }) {
     switch (part.id) {
       case 'conviction':
         charts = <ChartBlock title="Weighted subscore by model" explanation={ex.perModel}><PerModelBars perModel={part.chart.perModel} labels={MODEL_LABELS} /></ChartBlock>;
-        metrics = [['Weighted conviction', fmt(m.score, 1)], ['Holdings scored', `${m.holdingsScored}`], ['Weight covered', fmtPct(m.coveredWeight)]];
+        metrics = [['Weighted conviction', fmt(m.score, 1), 'thesis.conviction'], ['Holdings scored', `${m.holdingsScored}`], ['Weight covered', fmtPct(m.coveredWeight)]];
         break;
       case 'target':
         charts = (
@@ -244,7 +246,7 @@ function PartCard({ part, def }) {
             <ChartBlock title="Distribution of end results" explanation={ex.histogram}><PortfolioHistogram histogram={part.chart.histogram} target={part.chart.target} /></ChartBlock>
           </div>
         );
-        metrics = [['P(reach target)', fmtPct(m.pTarget, 1)], ['Median outcome', fmtPct(m.median, 1)], ['5th–95th pct', `${fmtPct(m.p5, 1)} to ${fmtPct(m.p95, 1)}`], ['P(loss)', fmtPct(m.pLoss, 1)], ['Pace needed', `${fmtPct(m.requiredAnnual, 1)}/yr`], ['Recent pace', `${fmtPct(m.histAnnual, 1)}/yr`]];
+        metrics = [['P(reach target)', fmtPct(m.pTarget, 1), 'target.probability'], ['Median outcome', fmtPct(m.median, 1), 'target.median'], ['5th–95th pct', `${fmtPct(m.p5, 1)} to ${fmtPct(m.p95, 1)}`, 'target.p5'], ['P(loss)', fmtPct(m.pLoss, 1), 'target.pLoss'], ['Pace needed', `${fmtPct(m.requiredAnnual, 1)}/yr`, 'target.requiredAnnual'], ['Recent pace', `${fmtPct(m.histAnnual, 1)}/yr`, 'target.histAnnual']];
         break;
       case 'risk':
         charts = (
@@ -253,7 +255,7 @@ function PartCard({ part, def }) {
             <ChartBlock title="Drawdown of this mix (common history)" explanation={ex.drawdown}><DrawdownChart drawdown={part.chart.curve} /></ChartBlock>
           </div>
         );
-        metrics = [['Portfolio volatility', fmtPct(m.vol)], ['Beta vs SPY', fmt(m.beta)], ['Max drawdown', fmtPct(m.maxDD)], ['Diversification ratio', fmt(m.divRatio)], ['Avg correlation', m.avgCorr === null ? 'n/a' : fmt(m.avgCorr)], ['Avg holding vol', fmtPct(m.weightedAvgVol)]];
+        metrics = [['Portfolio volatility', fmtPct(m.vol), 'thesis.vol'], ['Beta vs SPY', fmt(m.beta), 'thesis.beta'], ['Max drawdown', fmtPct(m.maxDD), 'thesis.maxDD'], ['Diversification ratio', fmt(m.divRatio), 'thesis.divRatio'], ['Avg correlation', m.avgCorr === null ? 'n/a' : fmt(m.avgCorr)], ['Avg holding vol', fmtPct(m.weightedAvgVol)]];
         break;
       default:
         break;
@@ -266,7 +268,7 @@ function PartCard({ part, def }) {
           <h3 className="font-semibold">{part.name}</h3>
           {part.available && <p className="text-xs text-muted mt-0.5">{part.scoringRule}</p>}
         </div>
-        <div className={`pill num text-base px-3 py-1 ${scoreClass(part.available ? part.subscore : null)}`}>{part.available ? part.subscore : '—'}</div>
+        <div className={`pill num text-base px-3 py-1 ${scoreClass(part.available ? part.subscore : null)}`} data-metric={part.id === 'target' ? 'target.score' : part.id === 'risk' ? 'thesis.risk' : 'thesis.conviction'}>{part.available ? part.subscore : '—'}</div>
       </header>
       {!part.available ? (
         <UnavailableBlock title="Unavailable — excluded from the portfolio score" reason={part.error} />
@@ -274,7 +276,7 @@ function PartCard({ part, def }) {
         <>
           {part.warning && <div className="rounded-lg border border-warn/40 bg-warn/10 p-2 text-xs text-warn">{part.warning}</div>}
           {charts}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 pt-2 border-t border-line">{metrics.map(([l, v]) => <Metric key={l} label={l} value={v} />)}</div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 pt-2 border-t border-line">{metrics.map(([l, v, k]) => <Metric key={l} label={l} value={v} metricKey={k} />)}</div>
         </>
       )}
     </section>
@@ -360,7 +362,11 @@ function PortfolioMethodology({ def, analysis, reportRef, embedded }) {
 }
 
 /* ---------------- Page ---------------- */
-export default function PortfolioPage({ settings, onOpenStock, embedded = false, holdingsOverride = null }) {
+/**
+ * `critic` (Standard mode, embedded on the Grade tab): { grade, holdings, analyses, stress } from the Grade
+ * result, enabling the "Stress-test my thesis" button and its result card. Null hides both entirely.
+ */
+export default function PortfolioPage({ settings, onOpenStock, embedded = false, holdingsOverride = null, critic = null }) {
   const [def, setDef] = useState(() => (holdingsOverride ? { ...loadPortfolioDraft(), holdings: holdingsOverride.holdings, amountMode: holdingsOverride.amountMode } : loadPortfolioDraft()));
   useEffect(() => { if (holdingsOverride) setDef((d) => ({ ...d, holdings: holdingsOverride.holdings, amountMode: holdingsOverride.amountMode })); }, [holdingsOverride]);
   const [running, setRunning] = useState(false);
@@ -370,6 +376,10 @@ export default function PortfolioPage({ settings, onOpenStock, embedded = false,
   const [reasoning, setReasoning] = useState({ status: 'idle', text: null, error: null, model: null });
   const reportRef = useRef(null);
   const runId = useRef(0);
+  // Thesis critic: Standard mode only. In Wharton mode `showCritic` is false and nothing below renders it
+  // (the hook itself never calls the network unless run() is invoked, and the gate refuses outside Standard).
+  const thesisCritic = useThesisCritic({ mode: settings.mode, def, analysis: analysis && !analysis.error ? analysis : null, critic });
+  const showCritic = settings.mode === 'standard' && Boolean(critic);
 
   useEffect(() => { savePortfolioDraft(def); }, [def]);
 
@@ -420,7 +430,8 @@ export default function PortfolioPage({ settings, onOpenStock, embedded = false,
 
   return (
     <div className="space-y-5">
-      <PortfolioForm def={def} onChange={setDef} onRun={run} running={running} embedded={embedded} />
+      <PortfolioForm def={def} onChange={setDef} onRun={run} running={running} embedded={embedded} belowThesis={showCritic ? <ThesisCriticButton critic={thesisCritic} /> : null} />
+      {showCritic && <ThesisCriticCard critic={thesisCritic} />}
 
       {running && progress && <HoldingsProgress holdings={progress.holdings} />}
       {running && <div className="space-y-5" aria-busy="true"><SkeletonCard lines={3} /><SkeletonCard chart /></div>}

@@ -1,0 +1,115 @@
+{
+  "id": "06_target_unrealistic",
+  "note": "A \"very likely\" target claim when the probability is low must be contradicted with target metrics.",
+  "expect": {
+    "type": "contradicted_with",
+    "keys": [
+      "target.probability",
+      "target.score",
+      "target.requiredAnnual",
+      "target.histAnnual",
+      "target.p95",
+      "target.median"
+    ]
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 3,
+      "unit": "months",
+      "label": "3 months"
+    },
+    "targetGrowthPct": 60,
+    "holdings": [
+      {
+        "ticker": "NVDA",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "AMD",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "TSLA",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "PLTR",
+        "assetType": "stock"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 49,
+      "portfolio.pillar.quality": 54,
+      "portfolio.pillar.diversification": 48,
+      "portfolio.pillar.risk": 31,
+      "portfolio.holdings": 4,
+      "portfolio.vol": 48.6,
+      "portfolio.beta": 1.82,
+      "portfolio.mdd": -54.3,
+      "portfolio.var95": 4.71,
+      "portfolio.sharpe": 0.61,
+      "portfolio.corr": 0.71,
+      "portfolio.hhi": 0.255,
+      "portfolio.cumReturn": 88.4,
+      "portfolio.spyCumReturn": 41.2,
+      "NVDA.weight": 30,
+      "NVDA.score": 66,
+      "NVDA.subscore.dcf": 18,
+      "NVDA.subscore.monteCarlo": 72,
+      "NVDA.subscore.risk": 31,
+      "NVDA.subscore.momentum": 88,
+      "NVDA.subscore.health": 91,
+      "NVDA.subscore.earnings": 80,
+      "AMD.weight": 25,
+      "AMD.score": 52,
+      "AMD.subscore.dcf": 24,
+      "AMD.subscore.monteCarlo": 58,
+      "AMD.subscore.risk": 35,
+      "AMD.subscore.momentum": 61,
+      "AMD.subscore.health": 70,
+      "AMD.subscore.earnings": 64,
+      "TSLA.weight": 25,
+      "TSLA.score": 41,
+      "TSLA.subscore.dcf": 12,
+      "TSLA.subscore.monteCarlo": 49,
+      "TSLA.subscore.risk": 22,
+      "TSLA.subscore.momentum": 55,
+      "TSLA.subscore.health": 48,
+      "TSLA.subscore.earnings": 52,
+      "PLTR.weight": 20,
+      "PLTR.score": 49,
+      "PLTR.subscore.dcf": 9,
+      "PLTR.subscore.monteCarlo": 66,
+      "PLTR.subscore.risk": 28,
+      "PLTR.subscore.momentum": 84,
+      "PLTR.subscore.health": 62,
+      "PLTR.subscore.earnings": 50,
+      "target.growth": 60,
+      "target.horizonValue": 3,
+      "target.probability": 4.1,
+      "target.score": 4,
+      "target.horizonDays": 63,
+      "target.median": 3.5,
+      "target.p5": -24.6,
+      "target.p95": 38.9,
+      "target.pLoss": 43.8,
+      "target.requiredAnnual": 556,
+      "target.histAnnual": 31.4,
+      "thesis.score": 38,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Neutral",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "NVDA.label": "Strong",
+      "AMD.label": "Neutral",
+      "TSLA.label": "Neutral",
+      "PLTR.label": "Neutral",
+      "target.horizon": "3 months",
+      "stress.status": "not run"
+    },
+    "thesis": "Hitting a sixty percent gain in three months is very likely for this basket; the recent pace easily supports it and I am confident the target will be reached."
+  }
+}

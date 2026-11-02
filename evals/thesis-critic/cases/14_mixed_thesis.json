@@ -1,0 +1,84 @@
+{
+  "id": "14_mixed_thesis",
+  "note": "Mixed thesis: the low-volatility claim is supported and the undervaluation claim is contradicted.",
+  "expect": {
+    "type": "both_verdicts"
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 6,
+      "unit": "months",
+      "label": "6 months"
+    },
+    "targetGrowthPct": 10,
+    "holdings": [
+      {
+        "ticker": "JNJ",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "BND",
+        "assetType": "bond_etf"
+      },
+      {
+        "ticker": "VTI",
+        "assetType": "equity_etf"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 70,
+      "portfolio.pillar.quality": 64,
+      "portfolio.pillar.diversification": 71,
+      "portfolio.pillar.risk": 77,
+      "portfolio.holdings": 3,
+      "portfolio.vol": 9.8,
+      "portfolio.beta": 0.58,
+      "portfolio.mdd": -12.4,
+      "portfolio.var95": 0.94,
+      "portfolio.sharpe": 1.42,
+      "portfolio.corr": 0.21,
+      "portfolio.hhi": 0.285,
+      "portfolio.cumReturn": 27.9,
+      "portfolio.spyCumReturn": 41.2,
+      "JNJ.weight": 30,
+      "JNJ.score": 55,
+      "JNJ.subscore.dcf": 21,
+      "JNJ.subscore.monteCarlo": 57,
+      "JNJ.subscore.risk": 82,
+      "JNJ.subscore.momentum": 54,
+      "JNJ.subscore.health": 79,
+      "JNJ.subscore.earnings": 66,
+      "BND.weight": 40,
+      "BND.score": 64,
+      "VTI.weight": 30,
+      "VTI.score": 71,
+      "target.growth": 10,
+      "target.horizonValue": 6,
+      "target.probability": 68.3,
+      "target.score": 68,
+      "target.horizonDays": 126,
+      "target.median": 6.2,
+      "target.p5": -14.8,
+      "target.p95": 29.7,
+      "target.pLoss": 31.5,
+      "target.requiredAnnual": 21,
+      "target.histAnnual": 14.3,
+      "thesis.score": 58,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Strong",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "JNJ.label": "Neutral",
+      "BND.label": "Strong",
+      "BND.subscores": "not applicable: ETFs and Treasuries use component models, not the six stock subscores",
+      "VTI.label": "Strong",
+      "VTI.subscores": "not applicable: ETFs and Treasuries use component models, not the six stock subscores",
+      "target.horizon": "6 months",
+      "stress.status": "not run"
+    },
+    "thesis": "This is a low-volatility portfolio, and Johnson & Johnson is deeply undervalued with a big margin of safety on cash flows."
+  }
+}

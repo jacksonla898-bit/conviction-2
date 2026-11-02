@@ -1,0 +1,101 @@
+{
+  "id": "07_diversified_but_correlated",
+  "note": "A \"well diversified\" claim when holdings are highly correlated and concentrated must be contradicted.",
+  "expect": {
+    "type": "contradicted_with",
+    "keys": [
+      "portfolio.corr",
+      "portfolio.hhi",
+      "portfolio.pillar.diversification",
+      "NVDA.weight",
+      "thesis.divRatio"
+    ]
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 6,
+      "unit": "months",
+      "label": "6 months"
+    },
+    "targetGrowthPct": 10,
+    "holdings": [
+      {
+        "ticker": "NVDA",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "AMD",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "AVGO",
+        "assetType": "stock"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 51,
+      "portfolio.pillar.quality": 62,
+      "portfolio.pillar.diversification": 26,
+      "portfolio.pillar.risk": 35,
+      "portfolio.holdings": 3,
+      "portfolio.vol": 48.6,
+      "portfolio.beta": 1.82,
+      "portfolio.mdd": -54.3,
+      "portfolio.var95": 4.71,
+      "portfolio.sharpe": 0.61,
+      "portfolio.corr": 0.86,
+      "portfolio.hhi": 0.445,
+      "portfolio.cumReturn": 88.4,
+      "portfolio.spyCumReturn": 41.2,
+      "NVDA.weight": 60,
+      "NVDA.score": 66,
+      "NVDA.subscore.dcf": 18,
+      "NVDA.subscore.monteCarlo": 72,
+      "NVDA.subscore.risk": 31,
+      "NVDA.subscore.momentum": 88,
+      "NVDA.subscore.health": 91,
+      "NVDA.subscore.earnings": 80,
+      "AMD.weight": 25,
+      "AMD.score": 52,
+      "AMD.subscore.dcf": 24,
+      "AMD.subscore.monteCarlo": 58,
+      "AMD.subscore.risk": 35,
+      "AMD.subscore.momentum": 61,
+      "AMD.subscore.health": 70,
+      "AMD.subscore.earnings": 64,
+      "AVGO.weight": 15,
+      "AVGO.score": 63,
+      "AVGO.subscore.dcf": 33,
+      "AVGO.subscore.monteCarlo": 64,
+      "AVGO.subscore.risk": 40,
+      "AVGO.subscore.momentum": 79,
+      "AVGO.subscore.health": 86,
+      "AVGO.subscore.earnings": 72,
+      "target.growth": 10,
+      "target.horizonValue": 6,
+      "target.probability": 44,
+      "target.score": 44,
+      "target.horizonDays": 126,
+      "target.median": 6.2,
+      "target.p5": -14.8,
+      "target.p95": 29.7,
+      "target.pLoss": 31.5,
+      "target.requiredAnnual": 21,
+      "target.histAnnual": 14.3,
+      "thesis.score": 58,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Neutral",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "NVDA.label": "Strong",
+      "AMD.label": "Neutral",
+      "AVGO.label": "Strong",
+      "target.horizon": "6 months",
+      "stress.status": "not run"
+    },
+    "thesis": "The portfolio is well diversified, so a problem in one name will be offset by the others. Spreading money across these holdings protects me from a single bad outcome."
+  }
+}

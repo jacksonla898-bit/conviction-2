@@ -1,8 +1,16 @@
 // POST /api/reason  { ticker, payload }
 // Standard-mode explanation. Receives ONLY computed metrics/subscores from the browser
 // (never raw web data) and asks Claude to explain the score without inventing figures.
+//
+// POST /api/reason?action=thesis-critique  { mode: 'standard', payload }
+// Thesis critic (Grade tab). Same function (the Hobby plan caps the project at 12 serverless functions),
+// same Standard-mode-only rule. Logic in api/_lib/thesisCritic.js: the payload carries the thesis plus
+// ONLY already-computed numbers; the structured critique is validated so every cited number exists
+// exactly; a per-IP daily limit and a 24-hour cache live in Supabase (service role only). It never
+// changes a score and never writes to the analysis log.
 import Anthropic from '@anthropic-ai/sdk';
 import { sendJson, sendError, requireEnv } from './_lib/http.js';
+import { validatePayload, payloadHash, critiqueThesis, critiqueConfig, clientIp, ipHash, bumpUsage, readCache, writeCache, DAILY_LIMIT, DEFAULT_MODEL } from './_lib/thesisCritic.js';
 
 const MODEL = 'claude-sonnet-5-5'; // current Claude Sonnet
 
@@ -29,6 +37,38 @@ Rules you must follow:
 - Each bullet should cite the specific metric and value from the payload that supports it.
 - Keep it under 400 words.`;
 
+async function handleThesisCritique(req, res, body, apiKey) {
+  const v = validatePayload(body.payload);
+  if (!v.ok) return sendJson(res, 400, { error: v.error });
+  const cfg = critiqueConfig(); // throws 503 when Supabase or the salt is not configured
+  const model = process.env.ANTHROPIC_MODEL_THESIS || DEFAULT_MODEL;
+  const hash = payloadHash(v.payload);
+
+  // 1. Identical input within 24 hours: answer from the cache (does not count against the limit).
+  const cached = await readCache(cfg, hash);
+  if (cached && cached.critique) {
+    res.setHeader('Cache-Control', 'private, no-store');
+    return sendJson(res, 200, { critique: cached.critique, model: cached.model || model, cached: true, cachedAt: cached.created_at });
+  }
+
+  // 2. Rate limit: DAILY_LIMIT critiques per hashed IP per UTC day. Counted before the model call.
+  const count = await bumpUsage(cfg, ipHash(clientIp(req), cfg.salt));
+  if (count > DAILY_LIMIT) {
+    return sendJson(res, 429, { error: `Daily limit reached: ${DAILY_LIMIT} thesis critiques per day from this network. Identical inputs are answered from the cache; otherwise try again after midnight UTC.`, rateLimited: true, limit: DAILY_LIMIT });
+  }
+
+  // 3. Ask Claude, validate every number, retry once, or fail cleanly.
+  const out = await critiqueThesis({ payload: v.payload, apiKey, model });
+  if (!out.ok) return sendJson(res, 422, { error: out.error, attempts: out.attempts, model });
+  try {
+    await writeCache(cfg, hash, out.critique, model);
+  } catch {
+    // The cache is a convenience; a failed write never fails the critique.
+  }
+  res.setHeader('Cache-Control', 'private, no-store');
+  sendJson(res, 200, { critique: out.critique, model, cached: false, usage: out.usage, attempts: out.attempts, evidenceDropped: out.dropped, remaining: Math.max(0, DAILY_LIMIT - count) });
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'POST only.' });
@@ -38,6 +78,9 @@ export default async function handler(req, res) {
     // Wharton mode must never reach the AI. The client never calls this endpoint outside Standard mode;
     // this server-side check makes that impossible even if a caller tried.
     if (body.mode !== 'standard') return sendJson(res, 403, { error: 'AI reasoning is only available in Standard mode.' });
+    const action = (req.query && req.query.action) || body.action || '';
+    if (action === 'thesis-critique') return await handleThesisCritique(req, res, body, apiKey);
+    if (action) return sendJson(res, 400, { error: `Unknown action "${String(action).slice(0, 40)}".` });
     if (!ticker || !payload) return sendJson(res, 400, { error: 'Missing ticker or payload.' });
 
     const text = JSON.stringify(payload);

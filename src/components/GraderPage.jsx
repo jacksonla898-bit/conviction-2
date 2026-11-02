@@ -68,7 +68,7 @@ export async function gradeHoldings(holdingRows, analyses, settings) {
 
 const DETAIL_TABS = [{ id: 'holdings', label: 'Holdings' }, { id: 'diversification', label: 'Diversification' }, { id: 'risk', label: 'Risk' }, { id: 'thesis', label: 'Thesis & target' }];
 
-export default function GraderPage({ settings, portfolio, setPortfolio, lastGrade, onGraded, onOpenStock, onGoTab, onSave }) {
+export default function GraderPage({ settings, portfolio, setPortfolio, lastGrade, lastStress = null, onGraded, onOpenStock, onGoTab, onSave }) {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({});
   const [error, setError] = useState(null);
@@ -132,6 +132,8 @@ export default function GraderPage({ settings, portfolio, setPortfolio, lastGrad
   const summary = useMemo(() => (g ? gradeSummary(g) : []), [g]);
   const percentRows = useMemo(() => (result ? result.holdings.map((h) => ({ ticker: h.ticker, amount: (h.weight * 100).toFixed(2) })) : []), [result]);
   const thesisOverride = useMemo(() => ({ holdings: percentRows, amountMode: 'percent' }), [percentRows]);
+  // Thesis critic inputs (Standard mode only): the grade, its holdings and analyses, and the stress test if it was run for the same holdings.
+  const critic = useMemo(() => (settings.mode === 'standard' && result ? { grade: result.grade, holdings: result.holdings, analyses: result.analyses, stress: lastStress && lastStress.key === key ? lastStress : null } : null), [settings.mode, result, lastStress, key]);
   const holdingRows = rows.filter((r) => r.ticker.trim() && Number(r.amount) > 0).map((r) => ({ ticker: r.ticker.trim().toUpperCase(), amount: String(r.amount) }));
 
   return (
@@ -187,7 +189,7 @@ export default function GraderPage({ settings, portfolio, setPortfolio, lastGrad
           >
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {g.pillars.map((p) => (
-                <div key={p.id} className="rounded-lg bg-surface-2 p-3">
+                <div key={p.id} className="rounded-lg bg-surface-2 p-3" data-metric={`portfolio.pillar.${p.id}`}>
                   <div className="flex items-center justify-between text-xs"><span className="text-ink-2 inline-flex items-center">{p.label}<InfoButton content={{ title: p.label, subtitle: `Pillar weight ${p.weight}%`, steps: g.steps[p.id] && g.steps[p.id].length ? g.steps[p.id] : [{ label: p.label, formula: 'see notes', calc: g.notes.join('; '), result: 'Unavailable' }] }} /></span><span className="text-muted">{p.score === null ? 'excluded' : `${(p.normWeight * 100).toFixed(0)}% weight`}</span></div>
                   <div className="num text-2xl font-bold mt-1" style={{ color: PILLAR_COLORS[p.id] }}>{p.score === null ? <Unavailable reason={g.notes.find((n) => n.toLowerCase().includes(p.id)) || 'Excluded'} /> : p.score.toFixed(0)}</div>
                   <div className="h-1.5 rounded-full bg-page mt-2 overflow-hidden"><div className="h-full" style={{ width: `${p.score ?? 0}%`, background: PILLAR_COLORS[p.id] }} /></div>
@@ -221,8 +223,8 @@ export default function GraderPage({ settings, portfolio, setPortfolio, lastGrad
                         <td><button className="text-accent hover:underline font-semibold" onClick={() => onOpenStock(h.ticker)}>{h.ticker}</button>{h.name && <div className="text-muted truncate max-w-[200px]">{h.name}</div>}</td>
                         <td className="text-ink-2">{ASSET_TYPE_LABELS[h.assetType] || h.assetType}</td>
                         <td className="r num text-muted">{h.input}{MODE_UNIT[portfolio.mode] || ''}</td>
-                        <td className="r num">{fmtPct(h.weight, 1)}</td>
-                        <td className="r">{h.score === null ? <Unavailable reason={h.error || 'No score'} /> : <span className={`pill num ${scoreClass(h.score)}`}>{h.score}</span>}</td>
+                        <td className="r num" data-metric={`${h.ticker}.weight`}>{fmtPct(h.weight, 1)}</td>
+                        <td className="r" data-metric={`${h.ticker}.score`}>{h.score === null ? <Unavailable reason={h.error || 'No score'} /> : <span className={`pill num ${scoreClass(h.score)}`}>{h.score}</span>}</td>
                         <td className="text-muted">{h.error || ''}</td>
                       </tr>
                     ))}
@@ -252,8 +254,8 @@ export default function GraderPage({ settings, portfolio, setPortfolio, lastGrad
             )}
             {tab === 'thesis' && (
               <div className="space-y-3">
-                <p className="text-xs text-muted">Optional: add a time horizon, a growth target and your thesis. Uses the holdings and weights from this grade. Each stock runs the full six-model analysis.</p>
-                <PortfolioPage settings={settings} onOpenStock={onOpenStock} embedded holdingsOverride={thesisOverride} />
+                <p className="text-xs text-muted">Optional: add a time horizon, a growth target and your thesis. Uses the holdings and weights from this grade. Each stock runs the full six-model analysis.{settings.mode === 'standard' ? ' In Standard mode, "Stress-test my thesis" asks Claude to argue the other side using only the numbers on this page.' : ''}</p>
+                <PortfolioPage settings={settings} onOpenStock={onOpenStock} embedded holdingsOverride={thesisOverride} critic={critic} />
               </div>
             )}
           </section>

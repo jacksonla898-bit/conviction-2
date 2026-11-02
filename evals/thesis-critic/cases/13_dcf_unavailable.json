@@ -1,0 +1,83 @@
+{
+  "id": "13_dcf_unavailable",
+  "note": "An undervalued claim when the DCF subscores are Unavailable must not be supported (no DCF number exists).",
+  "expect": {
+    "type": "has_verdict",
+    "verdict": "not_testable",
+    "forbidSupportedPattern": "undervalu|cash flow|valuation"
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 6,
+      "unit": "months",
+      "label": "6 months"
+    },
+    "targetGrowthPct": 10,
+    "holdings": [
+      {
+        "ticker": "JNJ",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "PG",
+        "assetType": "stock"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 72,
+      "portfolio.pillar.quality": 69,
+      "portfolio.pillar.diversification": 58,
+      "portfolio.pillar.risk": 82,
+      "portfolio.holdings": 2,
+      "portfolio.vol": 9.8,
+      "portfolio.beta": 0.58,
+      "portfolio.mdd": -12.4,
+      "portfolio.var95": 0.94,
+      "portfolio.sharpe": 1.42,
+      "portfolio.corr": 0.48,
+      "portfolio.hhi": 0.5,
+      "portfolio.cumReturn": 27.9,
+      "portfolio.spyCumReturn": 41.2,
+      "JNJ.weight": 50,
+      "JNJ.score": 68,
+      "JNJ.subscore.monteCarlo": 57,
+      "JNJ.subscore.risk": 82,
+      "JNJ.subscore.momentum": 54,
+      "JNJ.subscore.health": 79,
+      "JNJ.subscore.earnings": 66,
+      "PG.weight": 50,
+      "PG.score": 70,
+      "PG.subscore.monteCarlo": 60,
+      "PG.subscore.risk": 85,
+      "PG.subscore.momentum": 59,
+      "PG.subscore.health": 81,
+      "PG.subscore.earnings": 70,
+      "target.growth": 10,
+      "target.horizonValue": 6,
+      "target.probability": 66,
+      "target.score": 66,
+      "target.horizonDays": 126,
+      "target.median": 6.2,
+      "target.p5": -14.8,
+      "target.p95": 29.7,
+      "target.pLoss": 31.5,
+      "target.requiredAnnual": 21,
+      "target.histAnnual": 14.3,
+      "thesis.score": 58,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Strong",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "JNJ.label": "Strong",
+      "JNJ.subscore.dcf": "unavailable (data source failed)",
+      "PG.label": "Strong",
+      "PG.subscore.dcf": "unavailable (data source failed)",
+      "target.horizon": "6 months",
+      "stress.status": "not run"
+    },
+    "thesis": "Both of these companies are undervalued on a discounted cash flow basis, so the valuation case is the strongest part of the thesis."
+  }
+}

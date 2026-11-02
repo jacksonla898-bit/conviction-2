@@ -1,6 +1,6 @@
 # Conviction 2.0
 
-Stock, ETF, Treasury and portfolio analysis with every number shown. Six hand-written models (DCF, Monte Carlo, risk, momentum, financial health, earnings & insiders) roll up into one 0–100 conviction score for a stock; ETFs and Treasuries get their own component models; the Portfolio pages grade a mix, optimize its weights, stress-test it against past crashes and rate shocks, and keep portfolios in the browser. Vite + React + Recharts + Tailwind on the front end; ten Vercel serverless functions in `/api` make every external call so API keys never reach the browser. Live at https://www.tradeconviction.com.
+Stock, ETF, Treasury and portfolio analysis with every number shown. Six hand-written models (DCF, Monte Carlo, risk, momentum, financial health, earnings & insiders) roll up into one 0–100 conviction score for a stock; ETFs and Treasuries get their own component models; the Portfolio pages grade a mix, optimize its weights, stress-test it against past crashes and rate shocks, and keep portfolios in the browser. Vite + React + Recharts + Tailwind on the front end; eleven Vercel serverless functions in `/api` make every external call so API keys never reach the browser. Live at https://www.tradeconviction.com.
 
 ## Navigation
 
@@ -37,6 +37,8 @@ npm run dev                  # http://localhost:5173
 | `FRED_API_KEY` | fred.stlouisfed.org → My Account → API Keys (free) | `api/fred.js` (Treasury yields, allow-listed series only), `api/riskfree.js` |
 | `LOG_PASSCODE` | Choose it (8+ characters). The owner passcode for History and Track Record. | `api/analyses.js` (checked server-side; sets an HttpOnly session cookie) |
 | `CRON_SECRET` | Any long random string; Vercel sends it as a bearer token with the daily keep-alive. | `api/analyses.js` (cron ping) |
+| `THESIS_CRITIQUE_SALT` | Any long random string (16+ characters). Salt for the hashed-IP rate limit. | `api/reason.js?action=thesis-critique` |
+| `ANTHROPIC_MODEL_THESIS` | Optional. Model for the thesis critic; defaults to `claude-sonnet-5-5`. | `api/reason.js?action=thesis-critique` |
 
 Nothing is read from a `VITE_` variable; the browser only ever talks to `/api/*`. `node scripts/push-env-to-vercel.mjs [NAMES…]` copies values from `.env.local` to Vercel (Production and Preview) without printing them.
 
@@ -75,7 +77,11 @@ src/components/ StockResults, AssetAnalysis, GraderPage, OptimizerPage, StressTe
 ## Wharton mode never touches the AI
 
 - The AI client lives in `src/lib/ai.js` and is loaded only by `src/lib/aiGate.js`, with a dynamic `import()` placed after the Standard-mode check; in Wharton mode the file is not even downloaded. `tests/wharton-network.test.js` records every fetch while calling the gate in Wharton mode for every explanation kind and asserts that none happened.
-- `requestReasoning()` throws unless called with `'standard'`; `api/reason.js` rejects any request whose mode is not `standard` with HTTP 403.
+- `requestReasoning()` and `requestThesisCritique()` throw unless called with `'standard'`; `api/reason.js` rejects any request whose mode is not `standard` with HTTP 403, including `action=thesis-critique`.
+
+## Thesis critic (Standard mode, v2.5.0)
+
+Grade → Details → Thesis & target has a "Stress-test my thesis" button under the thesis box. It sends the thesis plus only numbers already computed on the page (flattened into a `metrics` map by `src/lib/thesisMetrics.js`) to `POST /api/reason?action=thesis-critique`. There is no extra serverless function: the action lives in the existing AI route, with its logic in `api/_lib/thesisCritic.js`. Claude returns a JSON-schema critique (claims checked, bear case, what would change my mind, blind spots). The server drops any evidence whose metric key or value does not match exactly, rejects any text containing a number that is not a metric value (one retry, then a clean error), limits each hashed IP to 5 critiques per UTC day, and caches identical inputs for 24 hours. Both tables (`supabase/migrations/20261102_thesis_critique.sql`) have RLS on with no policies and are written only with the service role. The critique never changes a score and is never written to the analysis log. `npm run eval:thesis` runs 15 fixture cases against the real route logic (needs `ANTHROPIC_API_KEY`).
 - Switching to Wharton discards any AI text held in memory, and a Wharton report is built without reading the AI text at all; the exporter refuses to write a Wharton PDF that contains an AI section.
 - `tests/purity.test.js` enforces all of this and lists every file on the Wharton path.
 

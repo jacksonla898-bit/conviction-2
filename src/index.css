@@ -132,6 +132,10 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; font-
 .skeleton { background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* Thesis critic: brief highlight on the number an evidence chip points at. */
+.metric-flash { animation: metricFlash 1.6s ease-out; border-radius: 6px; }
+@keyframes metricFlash { 0% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 3px transparent; } }
+
 .drawer-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 40; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--surface); border-left: 1px solid var(--line); z-index: 50; overflow-y: auto; box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18); }
 
