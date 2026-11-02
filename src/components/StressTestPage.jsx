@@ -57,7 +57,7 @@ export function stressPayload(r) {
 
 const DETAIL_TABS = [{ id: 'historical', label: 'Historical scenarios' }, { id: 'shocks', label: 'Hypothetical shocks' }, { id: 'inputs', label: 'Holdings & inputs' }];
 
-export default function StressTestPage({ settings, portfolio, lastGrade, onOpenStock, onGoTab, onSave }) {
+export default function StressTestPage({ settings, portfolio, lastGrade, onOpenStock, onGoTab, onSave, onTested = () => {} }) {
   const [amount, setAmount] = useState(() => String(lastGrade && lastGrade.dollarTotal ? Math.round(lastGrade.dollarTotal) : 10000));
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState('');
@@ -118,7 +118,9 @@ export default function StressTestPage({ settings, portfolio, lastGrade, onOpenS
       const scenarios = SCENARIOS.map((sc) => runScenario(sc, holdings, spy, agg));
       const shocks = runShocks(holdings, amt);
       const summary = summarize(scenarios, shocks);
-      setResult({ scenarios, shocks, summary, holdings, amount: amt, spyFirst: spy ? spy[0].date : null, aggFirst: agg ? agg[0].date : null, spyError: spyRes.ok ? null : spyRes.error, aggError: aggRes.ok ? null : aggRes.error, key });
+      const out = { scenarios, shocks, summary, holdings, amount: amt, spyFirst: spy ? spy[0].date : null, aggFirst: agg ? agg[0].date : null, spyError: spyRes.ok ? null : spyRes.error, aggError: aggRes.ok ? null : aggRes.error, key };
+      setResult(out);
+      onTested(out); // shared with the Grade tab's thesis critic (same holdings key only)
       setTab('historical');
     } catch (err) {
       setError(err.message);

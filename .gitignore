@@ -6,3 +6,6 @@ dist
 .vercel
 
 .vercel
+
+# Thesis critic eval output (contains model text)
+evals/thesis-critic/last-run.json

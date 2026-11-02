@@ -140,6 +140,23 @@ export const SECTIONS = [
     ],
   },
   {
+    id: 'thesisCritic', group: 'Portfolio', title: 'Thesis critic (Standard mode only)',
+    text: [
+      'On Grade → Details → Thesis & target, "Stress-test my thesis" asks Claude to argue the other side of the written thesis. It is available only in Standard mode: in Wharton mode the button and the card are not rendered, the AI module is never loaded, and the server refuses the request. The button needs a computed grade and a thesis of at least 40 characters (at most 2,000).',
+      'Inputs: the thesis text, the horizon and the growth target, plus only numbers already computed on the page — each holding\'s weight, conviction score and label and its six stock subscores (Unavailable subscores are sent as unavailable, never as a number), the portfolio grade and its three pillar scores, portfolio volatility, beta, max drawdown, 95% VaR, Sharpe and mean pairwise correlation, the target-feasibility probability and outcome percentiles when the Thesis & target analysis has been run, and the stress-test results when a stress test has been run for the same holdings. Every number is flattened into a metrics map with a stable key (for example NVDA.subscore.dcf, portfolio.vol, target.probability) and rounded exactly as shown on screen. No prices, filings or news are sent.',
+      'No invented numbers: Claude must cite every number by its metric key. The server drops any cited evidence whose key is not in the map or whose value does not match exactly after the same rounding, then scans every sentence for numbers; a number that is not a metric value (allowing percent or decimal formatting of the same value) triggers one retry with an error note, and if the second answer still has one, no critique is shown — only an error. The thesis is treated as data inside <thesis> tags; instructions inside it are ignored. Claude is told not to give buy or sell advice and not to output any score of its own.',
+      'Limits: 5 critiques per network per day (UTC). There are no accounts, so the server stores only a salted SHA-256 hash of the IP address and a daily count, never the IP itself. An identical input within 24 hours is answered from a cache keyed by the hash of the full input, and does not count against the limit. Both tables have row-level security on with no public policies; only the server writes to them.',
+      'It never changes any score, any pillar, any subscore or the blend, and the critique text is never written to the analysis log, which stays computed-values-only.',
+    ],
+    formulas: [
+      { label: 'Model', formula: 'ANTHROPIC_MODEL_THESIS (default claude-sonnet-5-5), max 1,500 output tokens, JSON-schema output', note: 'Sections: claims checked (supported / contradicted / not testable), bear case, what would change my mind, blind spots.' },
+      { label: 'Evidence check', formula: 'keep evidence ⇔ key ∈ metrics and round(value, d_key) = metrics[key]', note: 'd_key = the decimals the UI shows for that metric.' },
+      { label: 'Stray-number check', formula: 'every number in the text ∈ {v, v/100, 100·v : v ∈ metrics} at the precision written', note: 'Tickers and metric names are excluded first. One retry, then a clean error.' },
+      { label: 'Rate limit', formula: 'count(SHA-256(salt‖IP), UTC day) ≤ 5' },
+      { label: 'Cache', formula: 'key = SHA-256(canonical JSON of the validated input); TTL 24 h' },
+    ],
+  },
+  {
     id: 'optimizer', group: 'Portfolio', title: 'Optimizer (mean-variance, max Sharpe)',
     text: ['Up to 3 years of common daily returns. Constraints: Σw = 1, 2% ≤ wᵢ ≤ 30%, σ_p ≤ cap. Caps: Conservative 8%, Moderate 14%, Aggressive 22%. If no mix meets the cap the minimum-variance mix is shown and labelled infeasible. With fewer than 4 assets the 30% ceiling is relaxed to 1/N. Always: optimized on historical data; past performance does not predict future results.'],
     formulas: [
@@ -199,7 +216,7 @@ export const SECTIONS = [
     id: 'sources', group: 'Data', title: 'Data sources and limitations',
     text: [
       'Prices: Alpaca Market Data (IEX feed for analysis, SIP feed for stress-test history), split-adjusted daily closes. Fundamentals: SEC EDGAR XBRL company facts (annual filings, can be up to a year old). Earnings and insiders: Finnhub. Treasury yields, the yield curve and the risk-free rate: FRED (DGS series), with the U.S. Treasury daily curve as a fallback. ETF cash distributions: Alpaca corporate actions. Fund facts: SEC EDGAR filings (485BPOS prospectus XBRL for the expense ratio; N-PORT for net assets, holdings, interest-rate and credit-spread risk), each labelled with filing type and date; the SEC 30-day yield and letter ratings are not in those filings and stay unavailable. Individual bonds by CUSIP: no provider. Pre-2016 price history (dot-com and 2008 stress scenarios): no free source whose terms allow display on a public site was found (Alpaca begins 2016-01-04; Tiingo\'s free tier is "Internal Use Only"; Alpha Vantage\'s free licence is "personal, non-commercial use"; Stooq blocks server requests), so those scenarios stay unavailable rather than use a proxy.',
-      'Every API call runs on the server; no key reaches the browser. The analysis log stores computed values only, never AI text. Saved portfolios live only in this browser.',
+      'Every API call runs on the server; no key reaches the browser. The analysis log stores computed values only, never AI text (including thesis-critic text). Saved portfolios live only in this browser.',
       'It is not investment advice and does not predict the future. The DCF is deliberately conservative; the Monte Carlo and target simulations assume the near future resembles the recent past; the backtest exists so these weaknesses can be seen rather than hidden.',
     ],
     formulas: [],

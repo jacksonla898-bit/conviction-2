@@ -1,0 +1,101 @@
+{
+  "id": "11_beats_market_false",
+  "note": "A \"has beaten the market\" claim when the cumulative return trails SPY must be contradicted.",
+  "expect": {
+    "type": "contradicted_with",
+    "keys": [
+      "portfolio.cumReturn",
+      "portfolio.spyCumReturn"
+    ]
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 6,
+      "unit": "months",
+      "label": "6 months"
+    },
+    "targetGrowthPct": 10,
+    "holdings": [
+      {
+        "ticker": "VTI",
+        "assetType": "equity_etf"
+      },
+      {
+        "ticker": "BND",
+        "assetType": "bond_etf"
+      },
+      {
+        "ticker": "JNJ",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "PG",
+        "assetType": "stock"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 74,
+      "portfolio.pillar.quality": 69,
+      "portfolio.pillar.diversification": 77,
+      "portfolio.pillar.risk": 79,
+      "portfolio.holdings": 4,
+      "portfolio.vol": 9.8,
+      "portfolio.beta": 0.58,
+      "portfolio.mdd": -12.4,
+      "portfolio.var95": 0.94,
+      "portfolio.sharpe": 1.42,
+      "portfolio.corr": 0.21,
+      "portfolio.hhi": 0.285,
+      "portfolio.cumReturn": 27.9,
+      "portfolio.spyCumReturn": 41.2,
+      "VTI.weight": 40,
+      "VTI.score": 71,
+      "BND.weight": 30,
+      "BND.score": 64,
+      "JNJ.weight": 15,
+      "JNJ.score": 68,
+      "JNJ.subscore.dcf": 61,
+      "JNJ.subscore.monteCarlo": 57,
+      "JNJ.subscore.risk": 82,
+      "JNJ.subscore.momentum": 54,
+      "JNJ.subscore.health": 79,
+      "JNJ.subscore.earnings": 66,
+      "PG.weight": 15,
+      "PG.score": 70,
+      "PG.subscore.dcf": 58,
+      "PG.subscore.monteCarlo": 60,
+      "PG.subscore.risk": 85,
+      "PG.subscore.momentum": 59,
+      "PG.subscore.health": 81,
+      "PG.subscore.earnings": 70,
+      "target.growth": 10,
+      "target.horizonValue": 6,
+      "target.probability": 71.8,
+      "target.score": 72,
+      "target.horizonDays": 126,
+      "target.median": 6.2,
+      "target.p5": -14.8,
+      "target.p95": 29.7,
+      "target.pLoss": 31.5,
+      "target.requiredAnnual": 21,
+      "target.histAnnual": 14.3,
+      "thesis.score": 58,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Strong",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "VTI.label": "Strong",
+      "VTI.subscores": "not applicable: ETFs and Treasuries use component models, not the six stock subscores",
+      "BND.label": "Strong",
+      "BND.subscores": "not applicable: ETFs and Treasuries use component models, not the six stock subscores",
+      "JNJ.label": "Strong",
+      "PG.label": "Strong",
+      "target.horizon": "6 months",
+      "stress.status": "not run"
+    },
+    "thesis": "This mix has clearly beaten the market over the period the app measured, which shows the strategy works better than just owning an index fund."
+  }
+}

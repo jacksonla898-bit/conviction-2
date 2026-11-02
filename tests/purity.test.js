@@ -49,7 +49,7 @@ test('Wharton-path modules do not mention the AI module at all', () => {
   const whartonPath = ['src/lib/reportData.js', 'src/lib/tearSheet.js', 'src/components/report/TearSheet.jsx', 'src/components/Reasoning.jsx', 'src/components/Attribution.jsx', 'src/components/DcfScenarios.jsx', 'src/components/Prov.jsx', 'src/components/HistoryPage.jsx', 'src/lib/logPayload.js', 'src/lib/provenance.js', 'src/lib/api.js',
     'src/components/Methodology.jsx', 'src/components/AssetModelCard.jsx', 'src/components/chartsPortfolio.jsx', 'src/lib/assetPipeline.js', 'src/lib/portfolioData.js', 'src/models/assets.js', 'src/models/bondMath.js', 'src/models/portfolioGrade.js', 'src/models/optimizer.js',
     'src/components/ui.jsx', 'src/components/results/ScoreHeader.jsx', 'src/components/results/DriversCard.jsx', 'src/components/results/common.jsx', 'src/components/StockResults.jsx', 'src/components/MyPortfoliosPage.jsx', 'src/components/SavePortfolioButton.jsx', 'src/components/chartsExtra.jsx', 'src/components/SettingsDrawer.jsx', 'src/pages/HomePage.jsx', 'src/pages/AnalyzePage.jsx', 'src/pages/PortfolioHub.jsx', 'src/pages/MethodologyPage.jsx', 'src/models/stressTest.js', 'src/lib/savedPortfolios.js', 'src/lib/labels.js', 'src/lib/methodologyContent.js',
-    'src/components/TrackRecordPage.jsx', 'src/components/LogGate.jsx', 'src/models/trackRecord.js', 'src/components/FundFacts.jsx'];
+    'src/components/TrackRecordPage.jsx', 'src/components/LogGate.jsx', 'src/models/trackRecord.js', 'src/components/FundFacts.jsx', 'src/lib/thesisMetrics.js'];
   for (const p of whartonPath) {
     const text = fs.readFileSync(path.join(root, p), 'utf8');
     assert.ok(!/['"][^'"]*\/ai\.js['"]/.test(text), `${p} references the AI module`);

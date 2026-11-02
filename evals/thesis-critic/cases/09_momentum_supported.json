@@ -1,0 +1,108 @@
+{
+  "id": "09_momentum_supported",
+  "note": "A momentum claim backed by high momentum subscores should be supported.",
+  "expect": {
+    "type": "supported_with",
+    "keyPattern": "\\.subscore\\.momentum$"
+  },
+  "payload": {
+    "kind": "thesis-critique",
+    "horizon": {
+      "value": 6,
+      "unit": "months",
+      "label": "6 months"
+    },
+    "targetGrowthPct": 10,
+    "holdings": [
+      {
+        "ticker": "NVDA",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "AMD",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "TSLA",
+        "assetType": "stock"
+      },
+      {
+        "ticker": "PLTR",
+        "assetType": "stock"
+      }
+    ],
+    "metrics": {
+      "portfolio.grade": 49,
+      "portfolio.pillar.quality": 54,
+      "portfolio.pillar.diversification": 48,
+      "portfolio.pillar.risk": 31,
+      "portfolio.holdings": 4,
+      "portfolio.vol": 48.6,
+      "portfolio.beta": 1.82,
+      "portfolio.mdd": -54.3,
+      "portfolio.var95": 4.71,
+      "portfolio.sharpe": 0.61,
+      "portfolio.corr": 0.71,
+      "portfolio.hhi": 0.255,
+      "portfolio.cumReturn": 88.4,
+      "portfolio.spyCumReturn": 41.2,
+      "NVDA.weight": 30,
+      "NVDA.score": 66,
+      "NVDA.subscore.dcf": 18,
+      "NVDA.subscore.monteCarlo": 72,
+      "NVDA.subscore.risk": 31,
+      "NVDA.subscore.momentum": 88,
+      "NVDA.subscore.health": 91,
+      "NVDA.subscore.earnings": 80,
+      "AMD.weight": 25,
+      "AMD.score": 52,
+      "AMD.subscore.dcf": 24,
+      "AMD.subscore.monteCarlo": 58,
+      "AMD.subscore.risk": 35,
+      "AMD.subscore.momentum": 81,
+      "AMD.subscore.health": 70,
+      "AMD.subscore.earnings": 64,
+      "TSLA.weight": 25,
+      "TSLA.score": 41,
+      "TSLA.subscore.dcf": 12,
+      "TSLA.subscore.monteCarlo": 49,
+      "TSLA.subscore.risk": 22,
+      "TSLA.subscore.momentum": 79,
+      "TSLA.subscore.health": 48,
+      "TSLA.subscore.earnings": 52,
+      "PLTR.weight": 20,
+      "PLTR.score": 49,
+      "PLTR.subscore.dcf": 9,
+      "PLTR.subscore.monteCarlo": 66,
+      "PLTR.subscore.risk": 28,
+      "PLTR.subscore.momentum": 84,
+      "PLTR.subscore.health": 62,
+      "PLTR.subscore.earnings": 50,
+      "target.growth": 10,
+      "target.horizonValue": 6,
+      "target.probability": 41.2,
+      "target.score": 41,
+      "target.horizonDays": 126,
+      "target.median": 6.2,
+      "target.p5": -14.8,
+      "target.p95": 29.7,
+      "target.pLoss": 31.5,
+      "target.requiredAnnual": 21,
+      "target.histAnnual": 14.3,
+      "thesis.score": 58,
+      "thesis.conviction": 61,
+      "thesis.risk": 44
+    },
+    "facts": {
+      "portfolio.label": "Neutral",
+      "portfolio.window": "2023-11-01 to 2026-10-30",
+      "NVDA.label": "Strong",
+      "AMD.label": "Neutral",
+      "TSLA.label": "Neutral",
+      "PLTR.label": "Neutral",
+      "target.horizon": "6 months",
+      "stress.status": "not run"
+    },
+    "thesis": "The holdings have strong price momentum right now; they have been trending up over the past year and are trading above their moving averages."
+  }
+}
